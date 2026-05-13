@@ -1,0 +1,278 @@
+{
+  "name": "AI Conversation Core",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-conversation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "10000000-0000-0000-0000-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "webhookId": "ai-conversation-core"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            { "id": "a1", "name": "tenant_slug", "value": "={{ $json.body.tenant_slug }}", "type": "string" },
+            { "id": "a2", "name": "contact_id",  "value": "={{ $json.body.contact_id }}",  "type": "string" },
+            { "id": "a3", "name": "channel",     "value": "={{ $json.body.channel }}",     "type": "string" },
+            { "id": "a4", "name": "message",     "value": "={{ $json.body.message }}",     "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "10000000-0000-0000-0000-000000000002",
+      "name": "Extract",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/tenants",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "slug", "value": "=eq.{{ $json.tenant_slug }}" },
+            { "name": "select", "value": "id" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": { "response": { "response": { "fullResponse": false, "responseFormat": "json" } } }
+      },
+      "id": "10000000-0000-0000-0000-000000000003",
+      "name": "Get Tenant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/prompts",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "tenant_id", "value": "=eq.{{ $json[0].id }}" },
+            { "name": "name", "value": "=in.(10-behavioural-training-sale,20-domain-knowledge-wine,30-profile-account,40-playbook-account)" },
+            { "name": "select", "value": "name,content" },
+            { "name": "order", "value": "name.asc" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "10000000-0000-0000-0000-000000000004",
+      "name": "Get Prompt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/conversations",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "tenant_id", "value": "=eq.{{ $('Get Tenant').first().json[0].id }}" },
+            { "name": "contact_id", "value": "=eq.{{ $('Extract').first().json.contact_id }}" },
+            { "name": "role", "value": "=in.(user,assistant)" },
+            { "name": "select", "value": "role,content" },
+            { "name": "order", "value": "created_at.desc" },
+            { "name": "limit", "value": "20" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "10000000-0000-0000-0000-000000000005",
+      "name": "Get History",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [880, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.voyageai.com/v1/embeddings",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.VOYAGE_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"voyage-3-lite\",\n  \"input\": [{{ JSON.stringify($('Extract').first().json.message) }}],\n  \"input_type\": \"query\"\n}",
+        "options": {}
+      },
+      "id": "10000000-0000-0000-0000-000000000006",
+      "name": "Voyage Embed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1100, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/search_wines",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_tenant_id\": {{ JSON.stringify($('Get Tenant').first().json[0].id) }},\n  \"p_query_embedding\": {{ JSON.stringify($json.data[0].embedding) }},\n  \"p_match_count\": 3\n}",
+        "options": {}
+      },
+      "id": "10000000-0000-0000-0000-000000000007",
+      "name": "Search Wines",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1320, 0]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const promptRows = $('Get Prompt').first().json || [];\nconst byName = Object.fromEntries(promptRows.map(p => [p.name, p.content]));\nconst promptOrder = [\n  '10-behavioural-training-sale',\n  '20-domain-knowledge-wine',\n  '30-profile-account',\n  '40-playbook-account'\n];\nconst prompt = promptOrder.map(n => byName[n]).filter(Boolean).join('\\n\\n---\\n\\n');\n\nconst wines = $('Search Wines').first().json || [];\nconst history = ($('Get History').first().json || []).slice().reverse().map(r => ({ role: r.role, content: r.content }));\nconst extract = $('Extract').first().json;\n\nconst wineBlock = wines.length\n  ? '\\n\\n## Available wines for this conversation\\n' + wines.map((w, i) => {\n      const head = `${i + 1}. **${w.title}** — ${[w.varietal, w.vintage].filter(Boolean).join(' ')}` + (w.price ? `, R${w.price}` : '');\n      const body = w.description ? `\\n   ${w.description}` : '';\n      const pair = w.pairings ? `\\n   Pairings: ${w.pairings}.` : '';\n      const award = w.awards ? ` Awards: ${w.awards}.` : '';\n      return head + body + pair + award;\n    }).join('\\n')\n  : '';\n\nconst system = prompt + wineBlock;\nconst userMsg = { role: 'user', content: `[channel: ${extract.channel}]\\n${extract.message}` };\nconst messages = [...history, userMsg];\n\nreturn [{ json: {\n  system,\n  messages,\n  tenant_id: $('Get Tenant').first().json[0].id,\n  contact_id: extract.contact_id,\n  channel: extract.channel,\n  message: extract.message,\n  retrieved_wine_ids: wines.map(w => w.id)\n} }];"
+      },
+      "id": "10000000-0000-0000-0000-000000000008",
+      "name": "Build Messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/conversations",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tenant_id\": {{ JSON.stringify($json.tenant_id) }},\n  \"contact_id\": {{ JSON.stringify($json.contact_id) }},\n  \"channel\": {{ JSON.stringify($json.channel) }},\n  \"role\": \"user\",\n  \"content\": {{ JSON.stringify($json.message) }},\n  \"metadata\": { \"retrieved_wine_ids\": {{ JSON.stringify($json.retrieved_wine_ids) }} }\n}",
+        "options": {}
+      },
+      "id": "10000000-0000-0000-0000-000000000009",
+      "name": "Log User Turn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1760, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 1024,\n  \"system\": {{ JSON.stringify($('Build Messages').first().json.system) }},\n  \"messages\": {{ JSON.stringify($('Build Messages').first().json.messages) }}\n}",
+        "options": {}
+      },
+      "id": "10000000-0000-0000-0000-000000000010",
+      "name": "Call Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1980, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/conversations",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tenant_id\": {{ JSON.stringify($('Build Messages').first().json.tenant_id) }},\n  \"contact_id\": {{ JSON.stringify($('Build Messages').first().json.contact_id) }},\n  \"channel\": {{ JSON.stringify($('Build Messages').first().json.channel) }},\n  \"role\": \"assistant\",\n  \"content\": {{ JSON.stringify($json.content[0].text) }},\n  \"metadata\": {\n    \"model\": {{ JSON.stringify($json.model) }},\n    \"input_tokens\": {{ $json.usage.input_tokens }},\n    \"output_tokens\": {{ $json.usage.output_tokens }},\n    \"stop_reason\": {{ JSON.stringify($json.stop_reason) }}\n  }\n}",
+        "options": {}
+      },
+      "id": "10000000-0000-0000-0000-000000000011",
+      "name": "Log Assistant Turn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [2200, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"reply\": {{ JSON.stringify($('Call Claude').first().json.content[0].text) }},\n  \"metadata\": {\n    \"model\": {{ JSON.stringify($('Call Claude').first().json.model) }},\n    \"retrieved_wine_ids\": {{ JSON.stringify($('Build Messages').first().json.retrieved_wine_ids) }}\n  }\n}",
+        "options": {}
+      },
+      "id": "10000000-0000-0000-0000-000000000012",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [2420, 0]
+    }
+  ],
+  "connections": {
+    "Webhook":            { "main": [[{ "node": "Extract",            "type": "main", "index": 0 }]] },
+    "Extract":            { "main": [[{ "node": "Get Tenant",         "type": "main", "index": 0 }]] },
+    "Get Tenant":         { "main": [[{ "node": "Get Prompt",         "type": "main", "index": 0 }]] },
+    "Get Prompt":         { "main": [[{ "node": "Get History",        "type": "main", "index": 0 }]] },
+    "Get History":        { "main": [[{ "node": "Voyage Embed",       "type": "main", "index": 0 }]] },
+    "Voyage Embed":       { "main": [[{ "node": "Search Wines",       "type": "main", "index": 0 }]] },
+    "Search Wines":       { "main": [[{ "node": "Build Messages",     "type": "main", "index": 0 }]] },
+    "Build Messages":     { "main": [[{ "node": "Log User Turn",      "type": "main", "index": 0 }]] },
+    "Log User Turn":      { "main": [[{ "node": "Call Claude",        "type": "main", "index": 0 }]] },
+    "Call Claude":        { "main": [[{ "node": "Log Assistant Turn", "type": "main", "index": 0 }]] },
+    "Log Assistant Turn": { "main": [[{ "node": "Respond",            "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": []
+}

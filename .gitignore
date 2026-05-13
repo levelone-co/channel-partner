@@ -1,0 +1,27 @@
+# Secrets / local-only config
+.env
+.env.local
+.env.*.local
+
+# n8n workflow exports that may contain inline credentials
+*.local.json
+workflows/*.local.json
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.python-version
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log

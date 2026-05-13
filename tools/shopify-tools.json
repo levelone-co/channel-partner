@@ -1,0 +1,50 @@
+[
+  {
+    "name": "search_wines",
+    "description": "Search the wine catalogue by intent or attribute. Use whenever the customer expresses preference (varietal, price range, pairing, mood). Returns top matches with title, varietal, vintage, price, pairings, awards.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Free-text search expressing what the customer wants (e.g. 'medium-bodied red for steak', 'crisp white under R200', 'something for a gift')."
+        }
+      },
+      "required": ["query"]
+    }
+  },
+  {
+    "name": "check_stock",
+    "description": "Check live stock availability for a specific wine before adding to cart. Use immediately before add_to_cart if you have any doubt the wine is available.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "shopify_product_id": {
+          "type": "string",
+          "description": "The Shopify product ID for the wine, as surfaced in the retrieved-context block."
+        }
+      },
+      "required": ["shopify_product_id"]
+    }
+  },
+  {
+    "name": "add_to_cart",
+    "description": "Add a wine to the customer's draft cart. Returns the updated checkout URL which the customer can use to complete purchase. Only call after explicit customer confirmation (e.g. 'yes please', 'add it', 'sure').",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "shopify_product_id": {
+          "type": "string",
+          "description": "The Shopify product ID for the wine."
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 24,
+          "description": "Number of bottles. Default 1 unless the customer specifies otherwise."
+        }
+      },
+      "required": ["shopify_product_id", "quantity"]
+    }
+  }
+]
