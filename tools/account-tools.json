@@ -1,0 +1,97 @@
+[
+  {
+    "name": "search_wines",
+    "description": "Search the wine catalogue by intent or attribute. Use whenever the customer expresses preference (varietal, price range, pairing, mood). Returns top matches with title, varietal, vintage, price, pairings, awards.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Free-text search expressing what the customer wants (e.g. 'medium-bodied red for steak', 'crisp white under R200', 'something for a gift')."
+        }
+      },
+      "required": ["query"]
+    }
+  },
+  {
+    "name": "check_stock",
+    "description": "Check live stock availability for a specific wine before adding to cart. Use immediately before add_to_cart if you have any doubt the wine is available.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "shopify_variant_id": {
+          "type": "string",
+          "description": "The Shopify VARIANT id (a specific vintage), as surfaced in the retrieved-context block. Variant-level because vintages have independent stock."
+        }
+      },
+      "required": ["shopify_variant_id"]
+    }
+  },
+  {
+    "name": "add_to_cart",
+    "description": "Add a wine to the customer's draft cart. Returns the updated checkout URL which the customer can use to complete purchase. Only call after explicit customer confirmation (e.g. 'yes please', 'add it', 'sure').",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "shopify_variant_id": {
+          "type": "string",
+          "description": "The Shopify VARIANT id for the wine + vintage being added."
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 24,
+          "description": "Number of bottles. Default 1 unless the customer specifies otherwise."
+        }
+      },
+      "required": ["shopify_variant_id", "quantity"]
+    }
+  },
+  {
+    "name": "capture_return_channels",
+    "description": "Backup capture path. Only call when the customer has unmistakably just shared their contact info in the latest turn AND you want to acknowledge it explicitly in your reply. The always-on extraction pipeline already captures volunteered info silently in the background — this tool is only for cases where your reply itself references the capture (e.g. 'Got it, Joe — I'll let you know when the next vintage drops'). DO NOT call this to solicit info; you must never ask for the customer's name, phone, WhatsApp, or email.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "first_name": {"type": "string"},
+        "last_name": {"type": "string"},
+        "phone": {"type": "string", "description": "E.164 format if possible (e.g. +27821234567)"},
+        "whatsapp": {"type": "string", "description": "WhatsApp number if different from primary phone"},
+        "email": {"type": "string"}
+      }
+    }
+  },
+  {
+    "name": "consult_web",
+    "description": "Search the web when the catalogue + prompts + customer context don't cover the question (e.g. external critic reviews like Tim Atkin or Decanter, current SA wine industry context, awards from outside the in-catalogue list, news about a specific producer). Never call this for in-catalogue questions — the wines retrieved-context block is authoritative for what we sell.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "query": {"type": "string", "description": "Concise search query"}
+      },
+      "required": ["query"]
+    }
+  },
+  {
+    "name": "consult_knowledge_base",
+    "description": "Search the account's internal knowledge base (winemaker notes, FAQ, past tasting events, supplier info, estate history) for account-specific information that isn't in the wine catalogue or the layered prompts. Use when the customer asks something specific to this estate that isn't covered by what you already know.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "query": {"type": "string"}
+      },
+      "required": ["query"]
+    }
+  },
+  {
+    "name": "consult_team",
+    "description": "Post a question to the estate team via Slack when something is genuinely beyond your knowledge AND you've already tried consult_web and consult_knowledge_base. The team's reply will reach you in a later turn as `team_notes` in your context. CRITICAL: do NOT pause — your reply to the customer after calling this MUST continue the conversation with what you know. Never say 'let me get back to you' or 'give me a moment'. Mention you're checking on something only if it feels natural; never make the customer wait.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "question": {"type": "string", "description": "Concise question for the team, including just enough customer context for them to answer (e.g. 'Customer asking about shipping to Mauritius next Thursday — what's our policy?')"}
+      },
+      "required": ["question"]
+    }
+  }
+]

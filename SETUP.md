@@ -188,7 +188,149 @@ These are deliberately left out of the JSON so the import is clean. Document any
 
 ---
 
-## 7. What comes after Step 2
+## 7. Step 3 — GHL channel routing
 
-- **Step 3 (GHL)**: route inbound channel messages → this webhook → reply back via GHL's `/conversations/messages` API. Use `contact.id` from GHL as the `contact_id` here for cross-channel continuity. See the platform plan for the full sketch.
-- **Step 4 (Shopify tool-use)**: add `search_wines` / `check_stock` / `add_to_cart` tools to the Claude call, route tool-use stops through a Switch node, persist `cart.id` in a new `customer_carts` table.
+Wire real customers (web chat / WhatsApp / SMS / email) through the existing n8n webhook.
+
+### 7.1 GHL custom fields
+
+In the sub-account → **Settings → Custom Fields → Contact → Add field**. Create these four (the original five-field list dropped `return_channel_declined` after we pivoted to conversational-only capture):
+
+| Display name | API key | Type | Used by |
+|---|---|---|---|
+| AI paused | `ai_paused` | Single option (Yes/No) | GHL workflow filter — skip n8n when Yes |
+| WhatsApp preferred | `whatsapp_preferred` | Single option (Yes/No) | Set Yes by silent extractor when WhatsApp differs from primary phone |
+| Return channels captured at | `return_channels_captured_at` | Date | Timestamp of last enrichment |
+| Last wines discussed | `last_wines_discussed` | Multi-line text | Comma-separated wine titles from last conversation |
+| Team notes | `team_notes` | Multi-line text | JSON-formatted array, written by the `team-reply` workflow when the Slack team replies to `consult_team` |
+
+After creation, copy each field's **field ID** (visible on the field edit page). You'll plug these into the workflow's `Get Contact` and `Update GHL Contact` nodes.
+
+### 7.2 Private Integration token
+
+Sub-account → **Settings → Private Integrations → Create Integration**. Scopes:
+
+- `contacts.readonly` + `contacts.write`
+- `conversations.readonly` + `conversations.write`
+- `conversations/message.write`
+- `locations.readonly`
+
+Reveal the token once (starts `pit-`) → in n8n add Variable **`GHL_API_TOKEN`** with the value.
+
+Also capture the sub-account **location ID** from your URL bar (`app.gohighlevel.com/v2/location/<location_id>/...`). Add it as n8n Variable **`GHL_LOCATION_ID`**, then run `sql/0004_tenants_ghl_location.sql` after replacing the placeholder with the real value.
+
+### 7.3 Inbound: GHL Workflow → n8n
+
+Create a workflow in GHL:
+
+- **Trigger**: *Customer Replied* (all channels).
+- **Filter**: `Contact → Custom Field → AI paused → is not Yes`.
+- **Action: Webhook**:
+  - Method: POST
+  - URL: `https://level24co.app.n8n.cloud/webhook/ai-conversation`
+  - Body (JSON, paste exactly — GHL replaces the `{{...}}` merge fields):
+    ```json
+    {
+      "tenant_slug": "level_24_wines",
+      "contact_id": "{{contact.id}}",
+      "channel": "{{message.type}}",
+      "message": "{{message.body}}"
+    }
+    ```
+
+### 7.4 Outbound + tool-loop + extraction (n8n UI changes)
+
+See **`STEP3_N8N_CHANGES.md`** for click-by-click n8n changes. Summary: channel normalisation in `Extract`, new `Get Contact` node, new `Send via GHL` node, new parallel `Extract Entities` branch with `Update GHL Contact`, new tool-loop after `Call Claude` for the seven tools in `tools/account-tools.json`.
+
+### 7.5 Embed the chat widget on the storefront
+
+- GHL sub-account → **Sites → Chat Widget** (or **Settings → Chat Widget**, depending on theme) → copy the embed snippet.
+- Shopify admin → **Online Store → Themes → ⋯ → Edit code → `layout/theme.liquid`** → paste before `</body>`. Save.
+- The bubble appears bottom-right on every page. First customer message creates a GHL contact and fires the workflow.
+
+### 7.6 Verification — Step 3
+
+1. Visit `https://level-24-co.myshopify.com/` → click chat bubble → ask "what pairs with steak?" → Sarah replies in the widget. Check GHL inbox + Supabase `conversations` for the rows.
+2. WhatsApp the Level 24 number from a test phone → Sarah replies on WhatsApp.
+3. Cross-channel: same contact across web + WhatsApp → Sarah's history is unified.
+4. Silent capture: in a conversation, volunteer *"I'm Joe, you can WhatsApp me on 0821234567 about new releases"*. Check GHL: `firstName=Joe`, `phone=+27821234567`, `whatsapp_preferred=Yes`, `return_channels_captured_at` populated. Sarah's reply should not awkwardly thank you for the info.
+5. No-solicitation discipline:
+   ```sql
+   select count(*) from conversations
+   where role='assistant'
+     and content ~* '(what is your|can i have your|what.s your|please share your) (phone|email|number|whatsapp|contact)';
+   ```
+   Expect 0.
+6. Operator handoff: in GHL inbox, set the contact's `ai_paused=Yes`. Send another message → n8n webhook does NOT fire (no new Supabase rows). Toggle back to No → next message goes through Sarah.
+
+## 8. Step 3.5 — Sarah's consultation toolkit
+
+After Step 3 verifies, add Sarah's three consultation tools (`consult_web`, `consult_knowledge_base`, `consult_team`).
+
+### 8.1 Tavily (web search)
+
+Sign up at https://app.tavily.com (free tier: 1000 searches/month). Generate an API key → add as n8n Variable **`TAVILY_API_KEY`**.
+
+### 8.2 Knowledge base — schema + ingest
+
+Run `sql/0005_knowledge_base_and_consultation.sql` in the Supabase SQL Editor. Verify:
+
+```sql
+select count(*) from knowledge_base;                                  -- 0 initially
+select column_name from information_schema.columns
+  where table_name = 'tenants' and column_name = 'slack_webhook_url';  -- 1 row
+```
+
+Author/edit `.md` files in `knowledge_base/level_24_wines/` (the README in that folder explains the convention). Then locally:
+
+```bash
+source .venv/bin/activate
+python scripts/ingest_knowledge.py --tenant level_24_wines
+```
+
+Re-run after every change. The script clears + replaces all rows for the tenant.
+
+### 8.3 Slack incoming webhook for `consult_team`
+
+In Slack workspace → **Apps → Incoming Webhooks** (install if not present) → **Add to Slack** → pick a channel (e.g. `#level-24-sarah`) → **Add Incoming WebHooks integration** → copy the URL (`https://hooks.slack.com/services/T.../B.../...`).
+
+Store it per-tenant in Supabase:
+
+```sql
+update tenants
+   set slack_webhook_url = 'https://hooks.slack.com/services/...'
+ where slug = 'level_24_wines';
+```
+
+(Stored in the DB, not in n8n Variables, so the right webhook is selected automatically per `tenant_slug` when `consult_team` fires.)
+
+### 8.4 Workflow changes for the consultation tools
+
+See **`STEP3_N8N_CHANGES.md`** §"Step 3.5 — Consultation tools" for the tool-loop additions.
+
+### 8.5 The resumption workflow (`team-reply`)
+
+A separate n8n workflow handles Slack team replies → contact's `team_notes`. Trigger options:
+
+- **Easiest**: a GHL Internal Note creation event (operator manually posts the team's reply into the GHL contact's internal notes; an upstream workflow listens for the note and runs the resumption).
+- **More automated**: Slack outgoing webhook on the channel — fires every message in the Slack channel; n8n filters by author + parses the message.
+
+For Phase 0 demo, go with the GHL Internal Note path: less wiring, less moving parts. Documented in `STEP3_N8N_CHANGES.md`.
+
+### 8.6 Verification — Step 3.5
+
+1. **Web research**: ask Sarah a question outside the catalogue (e.g. "what did Tim Atkin write about SA Pinotage in 2025?"). Verify she calls `consult_web` and folds the result into her reply.
+2. **Knowledge base**: ask "what time does the tasting room open?". Verify she calls `consult_knowledge_base`, retrieves from `visiting-and-shipping.md`, and answers correctly ("daily 10:00–17:00").
+3. **Team consult**: ask something niche ("can you ship to Mauritius next Thursday?"). Verify: (a) a Slack message appears in the configured channel with the question, (b) Sarah's reply keeps the conversation moving (no stalling), (c) when the team replies via GHL Internal Note, the next customer turn references the team's answer naturally.
+4. **No-stall discipline**:
+   ```sql
+   select count(*) from conversations
+   where role='assistant'
+     and content ~* '(let me get back to|give me a moment|i.ll find out|hold on while|i.ll confirm)';
+   ```
+   Expect 0 in the consult_team test runs.
+
+## 9. What comes after Step 3.5
+
+- **Step 4 (Shopify tool-use)**: wire `search_wines` / `check_stock` / `add_to_cart` tool branches into the same tool-loop scaffolding built in Step 3. Cart persistence in a new `customer_carts` table.
+- **Voiceflow eval** (parallel evaluation, deferred until Step 3 is verified): build the same Sarah in Voiceflow for the platform comparison.
