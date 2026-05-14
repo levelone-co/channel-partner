@@ -19,6 +19,7 @@ Do these in any order; the script and workflow will need them.
 3. Open **SQL Editor** and run, in order:
    - `sql/0001_initial_schema.sql`
    - `sql/0002_search_wines_rpc.sql`
+   - `sql/0003_wines_variant_grained.sql` — switches `wines` to one row per Shopify *variant* (so individual vintages are tracked separately) and adds `shopify_variant_id` to the RPC return columns.
 4. Verify with the SQL editor:
    ```sql
    select extname from pg_extension where extname='vector';      -- 1 row
@@ -37,10 +38,17 @@ Do these in any order; the script and workflow will need them.
 2. **Configure Admin API scopes**: `read_products` (required now). For Step 4 also grant `write_draft_orders` and `read_inventory`.
 3. **Install app** → copy **Admin API access token** → `SHOPIFY_ADMIN_TOKEN`.
 4. The store domain (e.g. `level-24-wines.myshopify.com`) → `SHOPIFY_STORE_DOMAIN`.
-5. **Metafield convention** the ingestion script expects:
-   - `custom.varietal`, `custom.vintage`, `custom.pairings`, `custom.awards`
-   - Falls back to `wine.*` namespace if `custom.*` is empty.
-   - Define these once via **Settings → Custom data → Products → Add definition**, then fill them per product.
+5. **Product data layout the ingestion script expects:**
+   - **Product category** = "Food & beverage › Alcoholic beverages › Wine" (unlocks the Shopify standard `shopify.wine-variety`, `shopify.wine-sweetness`, `shopify.country`, `shopify.region` metafields).
+   - **Product type** = "Red Wine" / "White Wine" / "Port" / etc.
+   - **Vintage** = a Product **Variant** option named "Vintage" with values like "2019", "2020". Each variant has its own SKU, price, and inventory. (Single-vintage wines can skip the option and rely on the `custom.vintage` fallback metafield.)
+   - **Custom Metafield definitions** to create at Settings → Custom data → Products → Add definition:
+     - `custom` · `varietal` — Multi-line text. Authoritative for grape composition (single variety or blend, e.g. "Cabernet Sauvignon 60%, Merlot 40%"). Takes precedence over the Shopify standard `shopify.wine-variety` if both are populated.
+     - `custom` · `range` — Single-line text. e.g. "Twenty Four", "Level".
+     - `custom` · `pairings` — Multi-line text.
+     - `custom` · `awards` — Multi-line text.
+   - Vintage is captured as a Shopify **Variant option** (not a metafield) — the script reads the variant's option value automatically.
+   - **Tags** are consumed as-is and folded into the wine's description.
 
 ### 1.4 n8n
 
@@ -170,7 +178,7 @@ These are deliberately left out of the JSON so the import is clean. Document any
 ## 6. Verification checklist (from the plan)
 
 - [ ] `select extname from pg_extension where extname='vector';` returns one row
-- [ ] `select count(*) from wines where tenant_id = (select id from tenants where slug='level_24_wines');` equals the Shopify product count
+- [ ] `select count(*) from wines where tenant_id = (select id from tenants where slug='level_24_wines');` equals the **variant** count across all Shopify wine products (one row per vintage, not per product)
 - [ ] `search_wines` RPC returns 3 rows for a sample query embedding
 - [ ] The curl test above returns a wine-grounded reply; user + assistant rows persist
 - [ ] Follow-up message with the same `contact_id` shows multi-turn memory

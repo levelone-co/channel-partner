@@ -29,6 +29,22 @@ github.com/levelone-co/channel-partner
 - Shopify API logic in n8n, not GHL workflows
 
 ## Key files
-- /prompts/system-prompt.md — main agent system prompt
-- /prompts/behavioural-training.md — sales bias, tone, methodology
-- /tools/shopify-tools.json — tool definitions for cart operations
+- /prompts/10-behavioural-training-sale.md — sales methodology, tone, channel matching (cross-tenant platform IP)
+- /prompts/20-domain-knowledge-wine.md — wine vocabulary, pairings, SA context (cross-tenant within wine vertical)
+- /prompts/30-profile-account-{tenant}.md — account persona + open facts
+- /prompts/40-playbook-account-{tenant}.md — account proprietary positioning
+- /tools/shopify-tools.json — tool definitions for cart operations (used in Step 4)
+- /workflows/ai-conversation-core.json — n8n workflow (webhook → RAG → Claude → log)
+- /sql/000{1,2,3}_*.sql — Supabase schema + RPCs
+- /scripts/ingest_wines.py — Shopify → Voyage → Supabase ingestion
+
+## Phase 0 experiments
+Parallel evaluations to run alongside the n8n + Claude path before committing for the pilot:
+- **Voiceflow vs n8n + Claude API** — build the same Sarah-for-Level-24 in Voiceflow (designed in their studio, with the same Supabase pgvector RAG). Compare on: response quality, end-to-end latency, prompt-editing ergonomics for the operator, monthly cost at expected volume, lock-in risk (how easy to migrate prompts/state out). Pick the winner for the pilot launch; the migration rules above keep either choice portable to Phase 1.
+
+## Phase 1 backlog (deferred from Phase 0)
+Latency + routing improvements that aren't worth doing while the core architecture is still settling:
+- **Intent classifier upstream** — tiny first Claude call (haiku, ~50 tokens) routes "product question" → full RAG, "FAQ" → templated answer, "greeting" → canned reply. Adds ~500ms to slow path, saves 3–4s on fast path.
+- **Streaming responses for web chat** — customer sees tokens within ~600ms instead of waiting for full completion. Doesn't apply to SMS/WhatsApp (need full message).
+- **Smaller models for short utterances** — even Haiku 4.5 is overkill for "yes please" / "what time do you close?". Route short or stereotyped utterances to a cheaper path.
+- **Parallelise Supabase + Voyage fetches** — attempted in Phase 0 by fanning Get Tenant out to Get Prompt + Get History + Voyage Embed, but n8n fires Build Messages on the first arriving input rather than waiting for all three. Proper fix: add a Merge node (typeVersion 3.x, mode "combine" with 3 inputs) before Build Messages as a sync barrier. ~400ms saving.

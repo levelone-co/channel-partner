@@ -38,7 +38,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/tenants",
+        "url": "={{ $vars.SUPABASE_URL }}/rest/v1/tenants",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
@@ -49,8 +49,9 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+            { "name": "apikey", "value": "={{ $vars.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $vars.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Accept", "value": "application/vnd.pgrst.object+json" }
           ]
         },
         "options": { "response": { "response": { "fullResponse": false, "responseFormat": "json" } } }
@@ -64,11 +65,11 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/prompts",
+        "url": "={{ $vars.SUPABASE_URL }}/rest/v1/prompts",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "tenant_id", "value": "=eq.{{ $json[0].id }}" },
+            { "name": "tenant_id", "value": "=eq.{{ $json.id }}" },
             { "name": "name", "value": "=in.(10-behavioural-training-sale,20-domain-knowledge-wine,30-profile-account,40-playbook-account)" },
             { "name": "select", "value": "name,content" },
             { "name": "order", "value": "name.asc" }
@@ -77,8 +78,8 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+            { "name": "apikey", "value": "={{ $vars.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $vars.SUPABASE_SERVICE_ROLE_KEY }}" }
           ]
         },
         "options": {}
@@ -92,11 +93,11 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/conversations",
+        "url": "={{ $vars.SUPABASE_URL }}/rest/v1/conversations",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "tenant_id", "value": "=eq.{{ $('Get Tenant').first().json[0].id }}" },
+            { "name": "tenant_id", "value": "=eq.{{ $('Get Tenant').first().json.id }}" },
             { "name": "contact_id", "value": "=eq.{{ $('Extract').first().json.contact_id }}" },
             { "name": "role", "value": "=in.(user,assistant)" },
             { "name": "select", "value": "role,content" },
@@ -107,8 +108,8 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+            { "name": "apikey", "value": "={{ $vars.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $vars.SUPABASE_SERVICE_ROLE_KEY }}" }
           ]
         },
         "options": {}
@@ -117,7 +118,8 @@
       "name": "Get History",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [880, 0]
+      "position": [880, 0],
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -126,13 +128,13 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $env.VOYAGE_API_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $vars.VOYAGE_API_KEY }}" },
             { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"voyage-3-lite\",\n  \"input\": [{{ JSON.stringify($('Extract').first().json.message) }}],\n  \"input_type\": \"query\"\n}",
+        "jsonBody": "={\n  \"model\": \"voyage-4-lite\",\n  \"input\": [{{ JSON.stringify($('Extract').first().json.message) }}],\n  \"input_type\": \"query\",\n  \"output_dimension\": 512\n}",
         "options": {}
       },
       "id": "10000000-0000-0000-0000-000000000006",
@@ -144,30 +146,31 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/search_wines",
+        "url": "={{ $vars.SUPABASE_URL }}/rest/v1/rpc/search_wines",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "apikey", "value": "={{ $vars.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $vars.SUPABASE_SERVICE_ROLE_KEY }}" },
             { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"p_tenant_id\": {{ JSON.stringify($('Get Tenant').first().json[0].id) }},\n  \"p_query_embedding\": {{ JSON.stringify($json.data[0].embedding) }},\n  \"p_match_count\": 3\n}",
+        "jsonBody": "={\n  \"p_tenant_id\": {{ JSON.stringify($('Get Tenant').first().json.id) }},\n  \"p_query_embedding\": {{ JSON.stringify($json.data[0].embedding) }},\n  \"p_match_count\": 3\n}",
         "options": {}
       },
       "id": "10000000-0000-0000-0000-000000000007",
       "name": "Search Wines",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [1320, 0]
+      "position": [1320, 0],
+      "alwaysOutputData": true
     },
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "const promptRows = $('Get Prompt').first().json || [];\nconst byName = Object.fromEntries(promptRows.map(p => [p.name, p.content]));\nconst promptOrder = [\n  '10-behavioural-training-sale',\n  '20-domain-knowledge-wine',\n  '30-profile-account',\n  '40-playbook-account'\n];\nconst prompt = promptOrder.map(n => byName[n]).filter(Boolean).join('\\n\\n---\\n\\n');\n\nconst wines = $('Search Wines').first().json || [];\nconst history = ($('Get History').first().json || []).slice().reverse().map(r => ({ role: r.role, content: r.content }));\nconst extract = $('Extract').first().json;\n\nconst wineBlock = wines.length\n  ? '\\n\\n## Available wines for this conversation\\n' + wines.map((w, i) => {\n      const head = `${i + 1}. **${w.title}** — ${[w.varietal, w.vintage].filter(Boolean).join(' ')}` + (w.price ? `, R${w.price}` : '');\n      const body = w.description ? `\\n   ${w.description}` : '';\n      const pair = w.pairings ? `\\n   Pairings: ${w.pairings}.` : '';\n      const award = w.awards ? ` Awards: ${w.awards}.` : '';\n      return head + body + pair + award;\n    }).join('\\n')\n  : '';\n\nconst system = prompt + wineBlock;\nconst userMsg = { role: 'user', content: `[channel: ${extract.channel}]\\n${extract.message}` };\nconst messages = [...history, userMsg];\n\nreturn [{ json: {\n  system,\n  messages,\n  tenant_id: $('Get Tenant').first().json[0].id,\n  contact_id: extract.contact_id,\n  channel: extract.channel,\n  message: extract.message,\n  retrieved_wine_ids: wines.map(w => w.id)\n} }];"
+        "jsCode": "// Helper: collect a node's items as an array of rows.\n// n8n's HTTP node auto-splits JSON-array responses into multiple items,\n// and with alwaysOutputData=true an empty array still produces one item\n// with an empty object — filter those out.\nfunction rows(nodeName) {\n  return $(nodeName).all().map(i => i.json).filter(o => o && Object.keys(o).length > 0);\n}\n\nconst promptRows = rows('Get Prompt');\nconst byName = Object.fromEntries(promptRows.map(p => [p.name, p.content]));\nconst promptOrder = [\n  '10-behavioural-training-sale',\n  '20-domain-knowledge-wine',\n  '30-profile-account',\n  '40-playbook-account'\n];\nconst stablePrompt = promptOrder.map(n => byName[n]).filter(Boolean).join('\\n\\n---\\n\\n');\n\nconst wines = rows('Search Wines');\nconst history = rows('Get History').slice().reverse().map(r => ({ role: r.role, content: r.content }));\nconst extract = $('Extract').first().json;\n\nconst wineBlock = wines.length\n  ? '## Available wines for this conversation\\n' + wines.map((w, i) => {\n      const head = `${i + 1}. **${w.title}** — ${[w.varietal, w.vintage].filter(Boolean).join(' ')}` + (w.price ? `, R${w.price}` : '');\n      const body = w.description ? `\\n   ${w.description}` : '';\n      const pair = w.pairings ? `\\n   Pairings: ${w.pairings}.` : '';\n      const award = w.awards ? ` Awards: ${w.awards}.` : '';\n      return head + body + pair + award;\n    }).join('\\n')\n  : '';\n\n// Anthropic prompt caching: the stable layered prompt is cached across requests\n// for this tenant (saves ~70% latency + ~90% input-token cost after first call).\n// The wine block changes per turn, so it lives in an uncached block after.\nconst systemBlocks = [\n  { type: 'text', text: stablePrompt, cache_control: { type: 'ephemeral' } }\n];\nif (wineBlock) {\n  systemBlocks.push({ type: 'text', text: wineBlock });\n}\n\nconst userMsg = { role: 'user', content: `[channel: ${extract.channel}]\\n${extract.message}` };\nconst messages = [...history, userMsg];\n\nreturn [{ json: {\n  systemBlocks,\n  messages,\n  tenant_id: $('Get Tenant').first().json.id,\n  contact_id: extract.contact_id,\n  channel: extract.channel,\n  message: extract.message,\n  retrieved_wine_ids: wines.map(w => w.id)\n} }];"
       },
       "id": "10000000-0000-0000-0000-000000000008",
       "name": "Build Messages",
@@ -178,12 +181,12 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/conversations",
+        "url": "={{ $vars.SUPABASE_URL }}/rest/v1/conversations",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "apikey", "value": "={{ $vars.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $vars.SUPABASE_SERVICE_ROLE_KEY }}" },
             { "name": "Content-Type", "value": "application/json" },
             { "name": "Prefer", "value": "return=minimal" }
           ]
@@ -206,14 +209,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "x-api-key", "value": "={{ $vars.ANTHROPIC_API_KEY }}" },
             { "name": "anthropic-version", "value": "2023-06-01" },
             { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 1024,\n  \"system\": {{ JSON.stringify($('Build Messages').first().json.system) }},\n  \"messages\": {{ JSON.stringify($('Build Messages').first().json.messages) }}\n}",
+        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 1024,\n  \"system\": {{ JSON.stringify($('Build Messages').first().json.systemBlocks) }},\n  \"messages\": {{ JSON.stringify($('Build Messages').first().json.messages) }}\n}",
         "options": {}
       },
       "id": "10000000-0000-0000-0000-000000000010",
@@ -225,12 +228,12 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/conversations",
+        "url": "={{ $vars.SUPABASE_URL }}/rest/v1/conversations",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "apikey", "value": "={{ $vars.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $vars.SUPABASE_SERVICE_ROLE_KEY }}" },
             { "name": "Content-Type", "value": "application/json" },
             { "name": "Prefer", "value": "return=minimal" }
           ]
