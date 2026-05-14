@@ -119,7 +119,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [880, 0],
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -141,7 +142,8 @@
       "name": "Voyage Embed",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [1100, 0]
+      "position": [1100, 0],
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -165,7 +167,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [1320, 0],
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -176,7 +179,8 @@
       "name": "Build Messages",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1540, 0]
+      "position": [1540, 0],
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -200,7 +204,8 @@
       "name": "Log User Turn",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [1760, 0]
+      "position": [1760, 0],
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -223,7 +228,8 @@
       "name": "Call Claude",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [1980, 0]
+      "position": [1980, 0],
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -247,7 +253,8 @@
       "name": "Log Assistant Turn",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [2200, 0]
+      "position": [2200, 0],
+      "executeOnce": true
     },
     {
       "parameters": {
