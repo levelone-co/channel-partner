@@ -168,12 +168,12 @@ For the customFields:
 - `Extract Entities` → `Parse Entities` → IF (`_has_any` true) → `Update GHL Contact (extraction)`.
 - The branch terminates after `Update GHL Contact (extraction)`. No need to merge back into the main chain — the workflow continues to `Respond` via the main path, and the extraction branch runs in parallel.
 
-### F. Existing `Get Prompt` — add the no-solicitation prompt
+### F. Existing `Get Prompt` — add the data-capture prompt
 
 In the `Get Prompt` node's query parameters, update the `name` filter to include the new prompt:
 
 ```
-name = in.(10-behavioural-training-sale,15-conversational-no-solicitation-sale,20-domain-knowledge-wine,30-profile-account,40-playbook-account)
+name = in.(10-behavioural-training-sale,15-conversational-data-capture-sale,20-domain-knowledge-wine,30-profile-account,40-playbook-account)
 ```
 
 And in `Build Messages`' `promptOrder`:
@@ -181,7 +181,7 @@ And in `Build Messages`' `promptOrder`:
 ```js
 const promptOrder = [
   '10-behavioural-training-sale',
-  '15-conversational-no-solicitation-sale',
+  '15-conversational-data-capture-sale',
   '20-domain-knowledge-wine',
   '30-profile-account',
   '40-playbook-account',
