@@ -25,31 +25,31 @@
             {
               "id": "a1",
               "name": "tenant_slug",
-              "value": "={{ $json.body.tenant_slug }}",
+              "value": "={{ $json.body.customData?.tenant_slug || $json.body.tenant_slug }}",
               "type": "string"
             },
             {
               "id": "a2",
               "name": "contact_id",
-              "value": "={{ $json.body.contact_id }}",
+              "value": "={{ $json.body.customData?.contact_id || $json.body.contact_id }}",
               "type": "string"
             },
             {
               "id": "a3",
               "name": "channel_ghl",
-              "value": "={{ $json.body.channel }}",
+              "value": "={{ $json.body.customData?.channel || $json.body.channel || 'Live_Chat' }}",
               "type": "string"
             },
             {
               "id": "a3b",
               "name": "channel",
-              "value": "={{ ({SMS:'sms', Email:'email', WhatsApp:'whatsapp', Live_Chat:'web', FB:'whatsapp', IG:'whatsapp'}[$json.body.channel] || 'web') }}",
+              "value": "={{ ({SMS:'sms', Email:'email', WhatsApp:'whatsapp', Live_Chat:'web', FB:'whatsapp', IG:'whatsapp'}[($json.body.customData?.channel || $json.body.channel)] || 'web') }}",
               "type": "string"
             },
             {
               "id": "a4",
               "name": "message",
-              "value": "={{ $json.body.message }}",
+              "value": "={{ $json.body.customData?.message || $json.body.message }}",
               "type": "string"
             }
           ]
