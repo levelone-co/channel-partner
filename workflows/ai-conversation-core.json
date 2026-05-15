@@ -4,19 +4,19 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "ai-conversation",
+        "path": "ai-conversation-core",
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "75f05eab-7b9f-4396-b953-b856ddbf20a5",
+      "id": "5ba1da7b-4e3e-4fff-8f43-7f858c45f904",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        0,
-        0
+        -448,
+        208
       ],
-      "webhookId": "ai-conversation-core"
+      "webhookId": "ai-conversation-core-step3-draft"
     },
     {
       "parameters": {
@@ -25,38 +25,44 @@
             {
               "id": "a1",
               "name": "tenant_slug",
-              "value": "={{ $json.body.tenant_slug }}",
+              "value": "={{ $json.body.customData?.tenant_slug || $json.body.tenant_slug }}",
               "type": "string"
             },
             {
               "id": "a2",
               "name": "contact_id",
-              "value": "={{ $json.body.contact_id }}",
+              "value": "={{ $json.body.customData?.contact_id || $json.body.contact_id }}",
               "type": "string"
             },
             {
               "id": "a3",
+              "name": "channel_ghl",
+              "value": "={{ $json.body.customData?.channel || $json.body.channel || 'Live_Chat' }}",
+              "type": "string"
+            },
+            {
+              "id": "a3b",
               "name": "channel",
-              "value": "={{ $json.body.channel }}",
+              "value": "={{ ({SMS:'sms', Email:'email', WhatsApp:'whatsapp', Live_Chat:'web', FB:'whatsapp', IG:'whatsapp'}[($json.body.customData?.channel || $json.body.channel)] || 'web') }}",
               "type": "string"
             },
             {
               "id": "a4",
               "name": "message",
-              "value": "={{ $json.body.message }}",
+              "value": "={{ $json.body.customData?.message || $json.body.message }}",
               "type": "string"
             }
           ]
         },
         "options": {}
       },
-      "id": "f21db2e7-fdcb-467c-a1ed-4fdcbae37524",
+      "id": "079dfa3e-a0be-455c-b9cd-60d0ed260ea1",
       "name": "Extract",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        224,
-        0
+        -224,
+        208
       ]
     },
     {
@@ -100,13 +106,13 @@
           }
         }
       },
-      "id": "36de8b40-4b52-467a-a1a0-ef9e29f2bdea",
+      "id": "512b0fc8-866d-492f-a591-95c9756f9724",
       "name": "Get Tenant",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        448,
-        0
+        0,
+        208
       ]
     },
     {
@@ -121,7 +127,7 @@
             },
             {
               "name": "name",
-              "value": "=in.(10-behavioural-training-sale,20-domain-knowledge-wine,30-profile-account,40-playbook-account)"
+              "value": "=in.(10-behavioural-training-sale,15-conversational-data-capture-sale,20-domain-knowledge-wine,30-profile-account,40-playbook-account)"
             },
             {
               "name": "select",
@@ -148,13 +154,13 @@
         },
         "options": {}
       },
-      "id": "08f03bb9-5f93-4812-8e6d-77b005313db0",
+      "id": "a672e062-b3a7-4da7-91c5-0772ce47700a",
       "name": "Get Prompt",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        672,
-        0
+        224,
+        208
       ]
     },
     {
@@ -204,13 +210,13 @@
         },
         "options": {}
       },
-      "id": "e2409661-348d-4356-b3cb-9a28f6564d1e",
+      "id": "1774414a-dcf0-4dfc-85d2-e9d8efb56ec5",
       "name": "Get History",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        880,
-        0
+        432,
+        208
       ],
       "alwaysOutputData": true,
       "executeOnce": true
@@ -237,13 +243,13 @@
         "jsonBody": "={\n  \"model\": \"voyage-4-lite\",\n  \"input\": [{{ JSON.stringify($('Extract').first().json.message) }}],\n  \"input_type\": \"query\",\n  \"output_dimension\": 512\n}",
         "options": {}
       },
-      "id": "deb7fe4b-89c9-40f3-a664-d3bf9599cfa4",
+      "id": "f3ba41c1-ecbd-4848-a7d7-25fbc9ad14aa",
       "name": "Voyage Embed",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1104,
-        0
+        656,
+        208
       ],
       "executeOnce": true
     },
@@ -273,28 +279,28 @@
         "jsonBody": "={\n  \"p_tenant_id\": {{ JSON.stringify($('Get Tenant').first().json.id) }},\n  \"p_query_embedding\": {{ JSON.stringify($json.data[0].embedding) }},\n  \"p_match_count\": 3\n}",
         "options": {}
       },
-      "id": "35f22c15-0fa5-4cb9-a3e8-aa9069d6c775",
+      "id": "5724961d-ad08-4bb5-8054-66379cb2ff2f",
       "name": "Search Wines",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1328,
-        0
+        880,
+        208
       ],
       "alwaysOutputData": true,
       "executeOnce": true
     },
     {
       "parameters": {
-        "jsCode": "// Helper: collect a node's items as an array of rows.\n// n8n's HTTP node auto-splits JSON-array responses into multiple items,\n// and with alwaysOutputData=true an empty array still produces one item\n// with an empty object — filter those out.\nfunction rows(nodeName) {\n  return $(nodeName).all().map(i => i.json).filter(o => o && Object.keys(o).length > 0);\n}\n\nconst promptRows = rows('Get Prompt');\nconst byName = Object.fromEntries(promptRows.map(p => [p.name, p.content]));\nconst promptOrder = [\n  '10-behavioural-training-sale',\n  '20-domain-knowledge-wine',\n  '30-profile-account',\n  '40-playbook-account'\n];\nconst stablePrompt = promptOrder.map(n => byName[n]).filter(Boolean).join('\\n\\n---\\n\\n');\n\nconst wines = rows('Search Wines');\nconst history = rows('Get History').slice().reverse().map(r => ({ role: r.role, content: r.content }));\nconst extract = $('Extract').first().json;\n\nconst wineBlock = wines.length\n  ? '## Available wines for this conversation\\n' + wines.map((w, i) => {\n      const head = `${i + 1}. **${w.title}** — ${[w.varietal, w.vintage].filter(Boolean).join(' ')}` + (w.price ? `, R${w.price}` : '');\n      const body = w.description ? `\\n   ${w.description}` : '';\n      const pair = w.pairings ? `\\n   Pairings: ${w.pairings}.` : '';\n      const award = w.awards ? ` Awards: ${w.awards}.` : '';\n      return head + body + pair + award;\n    }).join('\\n')\n  : '';\n\n// Anthropic prompt caching: the stable layered prompt is cached across requests\n// for this tenant (saves ~70% latency + ~90% input-token cost after first call).\n// The wine block changes per turn, so it lives in an uncached block after.\nconst systemBlocks = [\n  { type: 'text', text: stablePrompt, cache_control: { type: 'ephemeral' } }\n];\nif (wineBlock) {\n  systemBlocks.push({ type: 'text', text: wineBlock });\n}\n\nconst userMsg = { role: 'user', content: `[channel: ${extract.channel}]\\n${extract.message}` };\nconst messages = [...history, userMsg];\n\nreturn [{ json: {\n  systemBlocks,\n  messages,\n  tenant_id: $('Get Tenant').first().json.id,\n  contact_id: extract.contact_id,\n  channel: extract.channel,\n  message: extract.message,\n  retrieved_wine_ids: wines.map(w => w.id)\n} }];"
+        "jsCode": "// Helper: collect a node's items as an array of rows.\nfunction rows(nodeName) {\n  return $(nodeName).all().map(i => i.json).filter(o => o && Object.keys(o).length > 0);\n}\n\nconst promptRows = rows('Get Prompt');\nconst byName = Object.fromEntries(promptRows.map(p => [p.name, p.content]));\nconst promptOrder = [\n  '10-behavioural-training-sale',\n  '15-conversational-data-capture-sale',\n  '20-domain-knowledge-wine',\n  '30-profile-account',\n  '40-playbook-account'\n];\nconst stablePrompt = promptOrder.map(n => byName[n]).filter(Boolean).join('\\n\\n---\\n\\n');\n\n// Contact context from Get Contact (silent — never call attention to having it).\n// IMPORTANT: replace the field IDs below with the actual GHL custom-field IDs\n// from Settings → Custom Fields after the fields are created.\nconst FIELD_ID = {\n  ai_paused: 'GsQWJpXPmL4UpFUyzuOe',\n  whatsapp_preferred: 'cZnCWMR3VsZW0YXXcxGL',\n  return_channels_captured_at: 'kE3148Mfthnf3UHEPb4N',\n  last_wines_discussed: 'fjnOTKILzjC3VCeS6bpw',\n  team_notes: 'MOQaRVRvj1KiHEzIlmuU',\n};\nconst contactItems = $('Get Contact').all().map(i => i.json).filter(Boolean);\nconst contact = contactItems[0]?.contact || {};\nconst customFields = contact.customFields || [];\nconst getField = (id) => (customFields.find(f => f.id === id) || {}).value;\n\nconst isPlaceholderName = (s) => !s || /^(guest|visitor|unknown|anonymous)/i.test(String(s).trim());\nconst realFirstName = isPlaceholderName(contact.firstName) ? '' : contact.firstName;\nconst contactCtx = [];\nif (realFirstName) contactCtx.push(`Customer first name: ${realFirstName}`);\nif (contact.email && !/visitor|guest/i.test(contact.email)) contactCtx.push(`Email on record: ${contact.email}`);\nif (contact.phone) contactCtx.push(`Phone on record: ${contact.phone}`);\nif (getField(FIELD_ID.whatsapp_preferred) === 'Yes') contactCtx.push('Customer prefers WhatsApp.');\nif (getField(FIELD_ID.last_wines_discussed)) contactCtx.push(`Previously discussed: ${getField(FIELD_ID.last_wines_discussed)}`);\nconst teamNotesRaw = getField(FIELD_ID.team_notes);\nif (teamNotesRaw) {\n  try {\n    const notes = JSON.parse(teamNotesRaw);\n    if (Array.isArray(notes) && notes.length) {\n      contactCtx.push(`Team notes received during this conversation that you should fold into your response:\\n${notes.map(n => `- ${n}`).join('\\n')}`);\n    }\n  } catch (_e) { /* not JSON yet */ }\n}\nconst contactBlock = contactCtx.length ? `\\n\\n## Contact context\\n${contactCtx.join('\\n')}` : '';\n\nconst wines = rows('Search Wines');\nconst history = rows('Get History').slice().reverse().map(r => ({ role: r.role, content: r.content }));\nconst extract = $('Extract').first().json;\n\nconst wineBlock = wines.length\n  ? '## Available wines for this conversation\\n' + wines.map((w, i) => {\n      const head = `${i + 1}. **${w.title}** — ${[w.varietal, w.vintage].filter(Boolean).join(' ')}` + (w.price ? `, R${w.price}` : '');\n      const body = w.description ? `\\n   ${w.description}` : '';\n      const pair = w.pairings ? `\\n   Pairings: ${w.pairings}.` : '';\n      const award = w.awards ? ` Awards: ${w.awards}.` : '';\n      return head + body + pair + award;\n    }).join('\\n')\n  : '';\n\n// Cache the stable layered prompt + contact context (changes rarely per\n// conversation). Wine block lives in an uncached trailing block.\nconst systemBlocks = [\n  { type: 'text', text: stablePrompt + contactBlock, cache_control: { type: 'ephemeral' } }\n];\nif (wineBlock) {\n  systemBlocks.push({ type: 'text', text: wineBlock });\n}\n\nconst userMsg = { role: 'user', content: `[channel: ${extract.channel}]\\n${extract.message}` };\nconst messages = [...history, userMsg];\n\nreturn [{ json: {\n  systemBlocks,\n  messages,\n  tenant_id: $('Get Tenant').first().json.id,\n  contact_id: extract.contact_id,\n  channel: extract.channel,\n  channel_ghl: extract.channel_ghl,\n  message: extract.message,\n  retrieved_wine_ids: wines.map(w => w.id)\n} }];"
       },
-      "id": "7543c80b-d530-40cc-94aa-f61b303fd3eb",
+      "id": "f0ab6343-e96c-439e-8bea-5631ac4efb48",
       "name": "Build Messages",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1552,
-        0
+        1104,
+        208
       ],
       "executeOnce": true
     },
@@ -328,13 +334,13 @@
         "jsonBody": "={\n  \"tenant_id\": {{ JSON.stringify($json.tenant_id) }},\n  \"contact_id\": {{ JSON.stringify($json.contact_id) }},\n  \"channel\": {{ JSON.stringify($json.channel) }},\n  \"role\": \"user\",\n  \"content\": {{ JSON.stringify($json.message) }},\n  \"metadata\": { \"retrieved_wine_ids\": {{ JSON.stringify($json.retrieved_wine_ids) }} }\n}",
         "options": {}
       },
-      "id": "0bc5c777-e3f9-44f4-9b3c-e7cf19723c4f",
+      "id": "433146ee-4e8f-41bc-a366-3e2862a36e22",
       "name": "Log User Turn",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1760,
-        0
+        1312,
+        208
       ],
       "executeOnce": true
     },
@@ -361,16 +367,16 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 1024,\n  \"system\": {{ JSON.stringify($('Build Messages').first().json.systemBlocks) }},\n  \"messages\": {{ JSON.stringify($('Build Messages').first().json.messages) }}\n}",
+        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 1024,\n  \"system\": {{ JSON.stringify($('Build Messages').first().json.systemBlocks) }},\n  \"messages\": {{ JSON.stringify($('Build Messages').first().json.messages) }},\n  \"tools\": [\n    {\n      \"name\": \"capture_return_channels\",\n      \"description\": \"Acknowledge contact info the customer just shared. The always-on extraction pipeline captures volunteered info silently — call this tool only when your reply itself refers to the capture (e.g. 'Got it, Joe — I'll let you know when the next vintage drops'). Per the 15-conversational-data-capture-sale prompt, you may proactively offer to follow up via WhatsApp/email when there's a clear reason; this tool is the way to confirm what they shared in response.\",\n      \"input_schema\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"first_name\": {\"type\": \"string\"},\n          \"last_name\": {\"type\": \"string\"},\n          \"phone\": {\"type\": \"string\", \"description\": \"E.164 format if possible (e.g. +27821234567)\"},\n          \"whatsapp\": {\"type\": \"string\", \"description\": \"WhatsApp number if different from primary phone\"},\n          \"email\": {\"type\": \"string\"}\n        }\n      }\n    }\n  ]\n}",
         "options": {}
       },
-      "id": "c5a55f0a-e11a-402b-8c9b-6e62a957770e",
+      "id": "a5f2cd7a-68bd-4f3c-a4bb-ec17b139373b",
       "name": "Call Claude",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1984,
-        0
+        1536,
+        208
       ],
       "executeOnce": true,
       "onError": "continueErrorOutput"
@@ -405,13 +411,13 @@
         "jsonBody": "={\n  \"tenant_id\": {{ JSON.stringify($('Build Messages').first().json.tenant_id) }},\n  \"contact_id\": {{ JSON.stringify($('Build Messages').first().json.contact_id) }},\n  \"channel\": {{ JSON.stringify($('Build Messages').first().json.channel) }},\n  \"role\": \"assistant\",\n  \"content\": {{ JSON.stringify($json.content[0].text) }},\n  \"metadata\": {\n    \"model\": {{ JSON.stringify($json.model) }},\n    \"input_tokens\": {{ $json.usage.input_tokens }},\n    \"output_tokens\": {{ $json.usage.output_tokens }},\n    \"stop_reason\": {{ JSON.stringify($json.stop_reason) }}\n  }\n}",
         "options": {}
       },
-      "id": "8bcd3002-c394-4127-92fd-130ceb091d99",
+      "id": "6ce6cc7c-f636-45f1-8e8d-fbe47b62fb45",
       "name": "Log Assistant Turn",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        2208,
-        0
+        1760,
+        208
       ],
       "executeOnce": true
     },
@@ -421,13 +427,13 @@
         "responseBody": "={\n  \"reply\": {{ JSON.stringify($('Call Claude').first().json.content[0].text) }},\n  \"metadata\": {\n    \"model\": {{ JSON.stringify($('Call Claude').first().json.model) }},\n    \"retrieved_wine_ids\": {{ JSON.stringify($('Build Messages').first().json.retrieved_wine_ids) }}\n  }\n}",
         "options": {}
       },
-      "id": "35367c4f-e930-4792-83f3-aacc9d656ac8",
+      "id": "ed2f96b0-aa3a-4155-bcbf-50ca227bb249",
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2432,
-        0
+        1984,
+        208
       ]
     },
     {
@@ -463,10 +469,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        2208,
-        192
+        1760,
+        400
       ],
-      "id": "0c99b451-3813-4497-98c0-7f3154bd3f21",
+      "id": "7eabeae1-4573-4c9d-8ca9-67675f1eb85a",
       "name": "Log Error",
       "executeOnce": true
     },
@@ -481,11 +487,160 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2432,
-        192
+        1984,
+        400
       ],
-      "id": "20033d14-be8f-4c2d-9f2b-5cd7845deb98",
+      "id": "0331d8e3-f140-4706-b58c-7f9f4671c11b",
       "name": "Respond Fallback"
+    },
+    {
+      "parameters": {
+        "url": "=https://services.leadconnectorhq.com/contacts/{{ $('Extract').first().json.contact_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $vars.GHL_API_TOKEN }}"
+            },
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d6c0d5b1-9acc-4ba5-a4d6-382a81633a1c",
+      "name": "Get Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        0,
+        0
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://services.leadconnectorhq.com/conversations/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $vars.GHL_API_TOKEN }}"
+            },
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"type\": {{ JSON.stringify($('Build Messages').first().json.channel_ghl) }},\n  \"contactId\": {{ JSON.stringify($('Build Messages').first().json.contact_id) }},\n  \"message\": {{ JSON.stringify($('Call Claude').first().json.content[0].text) }}\n}",
+        "options": {}
+      },
+      "id": "f9417183-5b06-429c-8c38-05fcd103b365",
+      "name": "Send via GHL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1872,
+        208
+      ],
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $vars.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 200,\n  \"system\": \"Extract contact details the user shared in their latest message. Return ONLY a JSON object with any of these keys that are present: first_name, last_name, phone, whatsapp, email. Phone/whatsapp in E.164 if you can infer the country (SA numbers like 0821234567 become +27821234567). If none are present return {}. Never guess or infer values that were not stated.\",\n  \"messages\": [{ \"role\": \"user\", \"content\": {{ JSON.stringify($('Extract').first().json.message) }} }]\n}",
+        "options": {}
+      },
+      "id": "01010101-0001-0001-0001-000000000003",
+      "name": "Extract Entities",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [448, 420],
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the Haiku extraction result. Defensive: model may wrap JSON in prose.\nconst raw = $json?.content?.[0]?.text || '{}';\nlet parsed = {};\ntry {\n  const m = raw.match(/\\{[\\s\\S]*\\}/);\n  parsed = m ? JSON.parse(m[0]) : {};\n} catch (_e) { parsed = {}; }\nconst keys = ['first_name','last_name','phone','whatsapp','email'];\nconst clean = {};\nfor (const k of keys) { if (parsed[k] && String(parsed[k]).trim()) clean[k] = String(parsed[k]).trim(); }\nclean._has_any = Object.keys(clean).length > 0;\nreturn [{ json: clean }];"
+      },
+      "id": "01010101-0001-0001-0001-000000000004",
+      "name": "Parse Entities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [672, 420],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json._has_any }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "01010101-0001-0001-0001-000000000005",
+      "name": "Has Entities?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [896, 420]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://services.leadconnectorhq.com/contacts/{{ $('Extract').first().json.contact_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $vars.GHL_API_TOKEN }}" },
+            { "name": "Version", "value": "2021-07-28" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"firstName\": {{ JSON.stringify($json.first_name || undefined) }},\n  \"lastName\": {{ JSON.stringify($json.last_name || undefined) }},\n  \"phone\": {{ JSON.stringify($json.phone || $json.whatsapp || undefined) }},\n  \"email\": {{ JSON.stringify($json.email || undefined) }},\n  \"customFields\": [\n    {{ $json.whatsapp ? '{ \"id\": \"cZnCWMR3VsZW0YXXcxGL\", \"value\": \"Yes\" },' : '' }}\n    { \"id\": \"kE3148Mfthnf3UHEPb4N\", \"value\": {{ JSON.stringify(new Date().toISOString().slice(0,10)) }} }\n  ]\n}",
+        "options": {}
+      },
+      "id": "01010101-0001-0001-0001-000000000006",
+      "name": "Update GHL Contact (extraction)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1120, 420],
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
     }
   ],
   "pinData": {},
@@ -508,8 +663,35 @@
             "node": "Get Tenant",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Extract Entities",
+            "type": "main",
+            "index": 0
           }
         ]
+      ]
+    },
+    "Extract Entities": {
+      "main": [
+        [
+          { "node": "Parse Entities", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Parse Entities": {
+      "main": [
+        [
+          { "node": "Has Entities?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Has Entities?": {
+      "main": [
+        [
+          { "node": "Update GHL Contact (extraction)", "type": "main", "index": 0 }
+        ],
+        []
       ]
     },
     "Get Tenant": {
@@ -517,6 +699,11 @@
         [
           {
             "node": "Get Prompt",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Contact",
             "type": "main",
             "index": 0
           }
@@ -611,6 +798,17 @@
       "main": [
         [
           {
+            "node": "Send via GHL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send via GHL": {
+      "main": [
+        [
+          {
             "node": "Respond",
             "type": "main",
             "index": 0
@@ -635,10 +833,17 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "10dc96a9-016e-494d-b06b-e566ab2549cd",
+  "versionId": "cdb52a7a-13a7-4042-950a-8ebd9c163250",
   "meta": {
     "instanceId": "f8c3164f3a6b8410cf5398b759de648dc6162e70cdcc88086fee208dbf4b70b9"
   },
-  "id": "Q7JwqqUv5HBA1bYE",
-  "tags": []
+  "id": "dDpZqBST0TG86VD7",
+  "tags": [
+    {
+      "name": "Second iteration",
+      "id": "m23TSVUumogymRvy",
+      "updatedAt": "2026-05-15T16:11:38.478Z",
+      "createdAt": "2026-05-15T16:11:38.478Z"
+    }
+  ]
 }
