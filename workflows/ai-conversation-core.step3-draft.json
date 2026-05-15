@@ -539,6 +539,88 @@
       "position": [2320, 0],
       "executeOnce": true,
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $vars.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 200,\n  \"system\": \"Extract contact details the user shared in their latest message. Return ONLY a JSON object with any of these keys that are present: first_name, last_name, phone, whatsapp, email. Phone/whatsapp in E.164 if you can infer the country (SA numbers like 0821234567 become +27821234567). If none are present return {}. Never guess or infer values that were not stated.\",\n  \"messages\": [{ \"role\": \"user\", \"content\": {{ JSON.stringify($('Extract').first().json.message) }} }]\n}",
+        "options": {}
+      },
+      "id": "01010101-0001-0001-0001-000000000003",
+      "name": "Extract Entities",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [448, 220],
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the Haiku extraction result. Defensive: model may wrap JSON in prose.\nconst raw = $json?.content?.[0]?.text || '{}';\nlet parsed = {};\ntry {\n  const m = raw.match(/\\{[\\s\\S]*\\}/);\n  parsed = m ? JSON.parse(m[0]) : {};\n} catch (_e) { parsed = {}; }\nconst keys = ['first_name','last_name','phone','whatsapp','email'];\nconst clean = {};\nfor (const k of keys) { if (parsed[k] && String(parsed[k]).trim()) clean[k] = String(parsed[k]).trim(); }\nclean._has_any = Object.keys(clean).length > 0;\nreturn [{ json: clean }];"
+      },
+      "id": "01010101-0001-0001-0001-000000000004",
+      "name": "Parse Entities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [672, 220],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json._has_any }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "01010101-0001-0001-0001-000000000005",
+      "name": "Has Entities?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [896, 220]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://services.leadconnectorhq.com/contacts/{{ $('Extract').first().json.contact_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $vars.GHL_API_TOKEN }}" },
+            { "name": "Version", "value": "2021-07-28" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"firstName\": {{ JSON.stringify($json.first_name || undefined) }},\n  \"lastName\": {{ JSON.stringify($json.last_name || undefined) }},\n  \"phone\": {{ JSON.stringify($json.phone || $json.whatsapp || undefined) }},\n  \"email\": {{ JSON.stringify($json.email || undefined) }},\n  \"customFields\": [\n    {{ $json.whatsapp ? '{ \"id\": \"cZnCWMR3VsZW0YXXcxGL\", \"value\": \"Yes\" },' : '' }}\n    { \"id\": \"kE3148Mfthnf3UHEPb4N\", \"value\": {{ JSON.stringify(new Date().toISOString().slice(0,10)) }} }\n  ]\n}",
+        "options": {}
+      },
+      "id": "01010101-0001-0001-0001-000000000006",
+      "name": "Update GHL Contact (extraction)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1120, 220],
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
     }
   ],
   "pinData": {},
@@ -557,12 +639,31 @@
     "Extract": {
       "main": [
         [
-          {
-            "node": "Get Tenant",
-            "type": "main",
-            "index": 0
-          }
+          { "node": "Get Tenant", "type": "main", "index": 0 },
+          { "node": "Extract Entities", "type": "main", "index": 0 }
         ]
+      ]
+    },
+    "Extract Entities": {
+      "main": [
+        [
+          { "node": "Parse Entities", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Parse Entities": {
+      "main": [
+        [
+          { "node": "Has Entities?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Has Entities?": {
+      "main": [
+        [
+          { "node": "Update GHL Contact (extraction)", "type": "main", "index": 0 }
+        ],
+        []
       ]
     },
     "Get Tenant": {
