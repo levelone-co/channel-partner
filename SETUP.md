@@ -244,9 +244,18 @@ See **`STEP3_N8N_CHANGES.md`** for click-by-click n8n changes. Summary: channel 
 
 ### 7.5 Embed the chat widget on the storefront
 
-- GHL sub-account → **Sites → Chat Widget** (or **Settings → Chat Widget**, depending on theme) → copy the embed snippet.
+- Widget type: **Live chat** (not All-in-One — that pulls in the Meta-gated WhatsApp channel). Name it "Sarah". **Do not enable GHL's built-in Conversation AI** — our n8n + Claude pipeline is the brain, triggered via the *Customer Replied* workflow. Two AIs on one widget = double replies.
+- GHL sub-account → **Sites → Chat Widget** → copy the embed snippet.
 - Shopify admin → **Online Store → Themes → ⋯ → Edit code → `layout/theme.liquid`** → paste before `</body>`. Save.
 - The bubble appears bottom-right on every page. First customer message creates a GHL contact and fires the workflow.
+
+Deployed widget snippet (Level 24 demo sub-account):
+
+```html
+<script src="https://widgets.leadconnectorhq.com/loader.js" data-resources-url="https://widgets.leadconnectorhq.com/chat-widget/loader.js" data-widget-id="6a072ec62a4bbd9f1746f45d"></script>
+```
+
+Widget ID `6a072ec62a4bbd9f1746f45d`. The widget ID is not secret (it ships in client-side HTML); recorded here for reproducibility / handoff.
 
 ### 7.6 Verification — Step 3
 
