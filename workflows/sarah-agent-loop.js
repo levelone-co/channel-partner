@@ -102,13 +102,17 @@ async function adminToken() {
   // leftover Variable (e.g. an atkn_ value) can't shadow the good path.
   if (SHOPIFY_CLIENT_ID && SHOPIFY_CLIENT_SECRET) {
     try {
-    const qs =
-      `grant_type=client_credentials` +
-      `&client_id=${encodeURIComponent(SHOPIFY_CLIENT_ID || '')}` +
-      `&client_secret=${encodeURIComponent(SHOPIFY_CLIENT_SECRET || '')}`;
+    // Pass query params via the qs option — n8n's httpRequest mangles
+    // a query string embedded in the URL (the same call works verbatim
+    // from curl). qs lets n8n serialise them itself.
     const res = await helpers.httpRequest({
       method: 'POST',
-      url: `https://${SHOP}/admin/oauth/access_token?${qs}`,
+      url: `https://${SHOP}/admin/oauth/access_token`,
+      qs: {
+        grant_type: 'client_credentials',
+        client_id: SHOPIFY_CLIENT_ID,
+        client_secret: SHOPIFY_CLIENT_SECRET,
+      },
       returnFullResponse: true,
       ignoreHttpStatusErrors: true,
     });
@@ -126,6 +130,8 @@ async function adminToken() {
       shop: SHOP,
       has_client_id: !!SHOPIFY_CLIENT_ID,
       has_client_secret: !!SHOPIFY_CLIENT_SECRET,
+      client_id_prefix: String(SHOPIFY_CLIENT_ID || '').slice(0, 8),
+      client_secret_prefix: String(SHOPIFY_CLIENT_SECRET || '').slice(0, 6),
     };
     } catch (e) {
       _adminTokenDiag = { error: String((e && (e.message || e)) || e) };
