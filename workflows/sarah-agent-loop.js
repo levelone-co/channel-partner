@@ -94,11 +94,7 @@ let _adminTokenDiag = null;
 async function adminToken() {
   if (_adminToken) return _adminToken;
 
-  // Preferred: a static Admin API access token (the "App automation
-  // token", atkn_…, that a store-level "Develop apps" Custom App issues).
-  // Store custom apps do NOT support the OAuth client_credentials grant
-  // (Shopify returns "application_cannot_be_found"), so this is the
-  // correct auth for this app type. Mirrors ingest's resolve order.
+  // Optional override: a static Admin API access token, if ever set.
   const STATIC = $vars.SHOPIFY_ADMIN_TOKEN;
   if (STATIC) {
     _adminToken = STATIC;
@@ -106,18 +102,17 @@ async function adminToken() {
     return _adminToken;
   }
 
-  // Fallback: client_credentials (only works for Partner-dashboard apps).
-  // Form-encoded — Shopify's token endpoint rejects JSON for this grant.
-  const form =
-    `grant_type=client_credentials` +
-    `&client_id=${encodeURIComponent(SHOPIFY_CLIENT_ID || '')}` +
-    `&client_secret=${encodeURIComponent(SHOPIFY_CLIENT_SECRET || '')}`;
+  // client_credentials — credentials go in the URL QUERY STRING (proven
+  // working in Postman), NOT the body. Returns a short-lived shpua_ token
+  // (expires_in ~86400s). We mint fresh per execution; no cross-run cache.
   try {
+    const qs =
+      `grant_type=client_credentials` +
+      `&client_id=${encodeURIComponent(SHOPIFY_CLIENT_ID || '')}` +
+      `&client_secret=${encodeURIComponent(SHOPIFY_CLIENT_SECRET || '')}`;
     const res = await helpers.httpRequest({
       method: 'POST',
-      url: `https://${SHOP}/admin/oauth/access_token`,
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: form,
+      url: `https://${SHOP}/admin/oauth/access_token?${qs}`,
       returnFullResponse: true,
       ignoreHttpStatusErrors: true,
     });
@@ -127,12 +122,14 @@ async function adminToken() {
     }
     _adminToken = b && b.access_token;
     _adminTokenDiag = {
-      source: 'client_credentials',
+      source: 'client_credentials_query',
       status: res.statusCode,
-      body: typeof b === 'string' ? String(b).slice(0, 300) : b,
+      scope: b && b.scope,
+      token_prefix: _adminToken ? String(_adminToken).slice(0, 6) : null,
+      body: _adminToken ? undefined : typeof b === 'string' ? String(b).slice(0, 300) : b,
+      shop: SHOP,
       has_client_id: !!SHOPIFY_CLIENT_ID,
       has_client_secret: !!SHOPIFY_CLIENT_SECRET,
-      note: 'store-level custom apps do not support client_credentials; set SHOPIFY_ADMIN_TOKEN',
     };
   } catch (e) {
     _adminTokenDiag = { error: String((e && (e.message || e)) || e) };
