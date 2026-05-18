@@ -15,14 +15,11 @@
  *
  * n8n Variables required:
  *   ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
- *   VOYAGE_API_KEY, SHOPIFY_STORE_DOMAIN, GHL_API_TOKEN, and ONE of:
- *     SHOPIFY_ADMIN_TOKEN  (preferred — the atkn_… App automation token
- *                           a store "Develop apps" Custom App issues), OR
- *     SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET (only for Partner apps).
+ *   VOYAGE_API_KEY, SHOPIFY_STORE_DOMAIN, GHL_API_TOKEN.
  *
- * Cart/stock use the Shopify ADMIN API (Draft Orders). Store-level
- * custom apps authenticate with the static Admin token, NOT
- * client_credentials (Shopify -> "application_cannot_be_found").
+ * Cart = a Shopify cart permalink (/cart/{variant}:{qty}). ZERO
+ * Shopify auth — no Admin API, no Storefront, no OAuth, no token.
+ * Stock is a soft check against the ingested catalogue (Supabase).
  */
 
 const bm = $('Build Messages').first().json;
@@ -35,8 +32,6 @@ const SB_URL = $vars.SUPABASE_URL;
 const SB_KEY = $vars.SUPABASE_SERVICE_ROLE_KEY;
 const VOYAGE = $vars.VOYAGE_API_KEY;
 const SHOP = $vars.SHOPIFY_STORE_DOMAIN;
-const SHOPIFY_CLIENT_ID = $vars.SHOPIFY_CLIENT_ID;
-const SHOPIFY_CLIENT_SECRET = $vars.SHOPIFY_CLIENT_SECRET;
 const GHL_TOKEN = $vars.GHL_API_TOKEN;
 
 const SHOPIFY_API_VERSION = '2024-10';
@@ -87,147 +82,55 @@ const sbHeaders = {
   Authorization: `Bearer ${SB_KEY}`,
 };
 
-// --- Shopify Admin API (Draft Orders) — reuses the proven client_credentials
-// auth the ingest script uses. No Storefront token needed. ---
-let _adminToken = null;
-let _adminTokenDiag = null;
-async function adminToken() {
-  if (_adminToken) return _adminToken;
-
-  // Primary: client_credentials — credentials in the URL QUERY STRING
-  // (proven working against level-24-co), NOT the body. Returns a
-  // short-lived token (expires_in ~86400s) carrying the app's full
-  // scope incl. write_draft_orders. Minted fresh per execution.
-  // This is preferred over any static SHOPIFY_ADMIN_TOKEN so a stale
-  // leftover Variable (e.g. an atkn_ value) can't shadow the good path.
-  if (SHOPIFY_CLIENT_ID && SHOPIFY_CLIENT_SECRET) {
-    try {
-    // Pass query params via the qs option — n8n's httpRequest mangles
-    // a query string embedded in the URL (the same call works verbatim
-    // from curl). qs lets n8n serialise them itself.
-    const res = await helpers.httpRequest({
-      method: 'POST',
-      url: `https://${SHOP}/admin/oauth/access_token`,
-      qs: {
-        grant_type: 'client_credentials',
-        client_id: SHOPIFY_CLIENT_ID,
-        client_secret: SHOPIFY_CLIENT_SECRET,
-      },
-      returnFullResponse: true,
-      ignoreHttpStatusErrors: true,
-    });
-    let b = res.body;
-    if (typeof b === 'string') {
-      try { b = JSON.parse(b); } catch (_e) { /* keep string */ }
-    }
-    _adminToken = b && b.access_token;
-    _adminTokenDiag = {
-      source: 'client_credentials_query',
-      status: res.statusCode,
-      scope: b && b.scope,
-      token_prefix: _adminToken ? String(_adminToken).slice(0, 6) : null,
-      body: _adminToken ? undefined : typeof b === 'string' ? String(b).slice(0, 300) : b,
-      shop: SHOP,
-      has_client_id: !!SHOPIFY_CLIENT_ID,
-      has_client_secret: !!SHOPIFY_CLIENT_SECRET,
-      client_id_prefix: String(SHOPIFY_CLIENT_ID || '').slice(0, 8),
-      client_secret_prefix: String(SHOPIFY_CLIENT_SECRET || '').slice(0, 6),
-    };
-    } catch (e) {
-      _adminTokenDiag = { error: String((e && (e.message || e)) || e) };
-    }
-  }
-
-  // Fallback: a static Admin API access token, only if client_credentials
-  // didn't produce one (or no client creds set).
-  if (!_adminToken && $vars.SHOPIFY_ADMIN_TOKEN) {
-    _adminToken = $vars.SHOPIFY_ADMIN_TOKEN;
-    _adminTokenDiag = { source: 'static_SHOPIFY_ADMIN_TOKEN_fallback' };
-  }
-  return _adminToken;
-}
-
-async function adminApi(method, path, body) {
-  const token = await adminToken();
-  if (!token)
-    return { ok: false, status: 0, body: { __error: 'admin token mint failed', mint: _adminTokenDiag } };
-  return http({
-    method,
-    url: `https://${SHOP}/admin/api/${SHOPIFY_API_VERSION}${path}`,
-    headers: { 'X-Shopify-Access-Token': token },
-    body,
-  });
-}
-
-// ---- tool implementations -------------------------------------------------
-
-async function search_wines({ query }) {
-  const emb = await http({
-    method: 'POST',
-    url: 'https://api.voyageai.com/v1/embeddings',
-    headers: { Authorization: `Bearer ${VOYAGE}` },
-    body: { model: 'voyage-4-lite', input: [query], input_type: 'query', output_dimension: 512 },
-  });
-  const vector = emb.body && emb.body.data && emb.body.data[0] && emb.body.data[0].embedding;
-  if (!vector) return { error: 'embedding failed', detail: emb.body };
-  const r = await http({
-    method: 'POST',
-    url: `${SB_URL}/rest/v1/rpc/search_wines`,
-    headers: sbHeaders,
-    body: { p_tenant_id: tenantId, p_query_embedding: vector, p_match_count: 3 },
-  });
-  return r.ok ? { wines: r.body } : { error: 'search failed', detail: r.body };
-}
+// --- Shopify cart permalink — ZERO auth. /cart/{variant}:{qty},... ---
+// No Admin API, no Storefront, no OAuth, no token. Lines accumulate per
+// (tenant, contact) in customer_carts so multiple adds build one cart.
 
 async function check_stock({ shopify_variant_id }) {
-  const r = await adminApi('GET', `/variants/${shopify_variant_id}.json`);
-  const v = r.body && r.body.variant;
-  if (!v) return { error: 'variant not found', status: r.status, detail: r.body };
-  const qty = typeof v.inventory_quantity === 'number' ? v.inventory_quantity : null;
-  const available = v.inventory_policy === 'continue' || (qty === null ? true : qty > 0);
-  return { available, quantity_available: qty, wine: v.title || '' };
+  // Backed by the ingested catalogue (Supabase), not Shopify — search_wines
+  // already only surfaces inventory_available wines, so this is a soft check.
+  const r = await http({
+    url:
+      `${SB_URL}/rest/v1/wines?tenant_id=eq.${encodeURIComponent(tenantId)}` +
+      `&shopify_variant_id=eq.${encodeURIComponent(shopify_variant_id)}` +
+      `&select=title,vintage,inventory_available`,
+    headers: sbHeaders,
+  });
+  const row = Array.isArray(r.body) && r.body[0];
+  if (!row)
+    return { available: true, note: 'not in catalogue cache; checkout will confirm' };
+  return {
+    available: !!row.inventory_available,
+    wine: `${row.title || ''} ${row.vintage || ''}`.trim(),
+  };
 }
 
 async function add_to_cart({ shopify_variant_id, quantity }) {
   const qty = Math.max(1, Math.min(24, parseInt(quantity, 10) || 1));
-  const vid = parseInt(shopify_variant_id, 10);
+  const vid = String(shopify_variant_id).replace(/[^0-9]/g, '');
+  if (!vid) return { error: 'invalid variant id' };
 
+  // cart_id column holds the running line spec "vid:qty,vid:qty".
   const existing = await http({
     url:
       `${SB_URL}/rest/v1/customer_carts?tenant_id=eq.${encodeURIComponent(tenantId)}` +
-      `&contact_id=eq.${encodeURIComponent(contactId)}&select=cart_id,checkout_url`,
+      `&contact_id=eq.${encodeURIComponent(contactId)}&select=cart_id`,
     headers: sbHeaders,
   });
-  const rows = Array.isArray(existing.body) ? existing.body : [];
-  const draftId = rows.length && rows[0].cart_id ? rows[0].cart_id : null;
+  const prev =
+    (Array.isArray(existing.body) && existing.body[0] && existing.body[0].cart_id) || '';
 
-  let draft, resp;
-  if (draftId) {
-    // Append the new line to the existing draft order.
-    const cur = await adminApi('GET', `/draft_orders/${draftId}.json`);
-    const lines = ((cur.body && cur.body.draft_order && cur.body.draft_order.line_items) || []).map(
-      (li) => ({ variant_id: li.variant_id, quantity: li.quantity })
-    );
-    lines.push({ variant_id: vid, quantity: qty });
-    resp = await adminApi('PUT', `/draft_orders/${draftId}.json`, {
-      draft_order: { id: draftId, line_items: lines },
-    });
-    draft = resp.body && resp.body.draft_order;
+  const lines = {};
+  for (const part of String(prev).split(',')) {
+    const m = part.match(/^(\d+):(\d+)$/);
+    if (m) lines[m[1]] = (lines[m[1]] || 0) + parseInt(m[2], 10);
   }
-  if (!draft) {
-    resp = await adminApi('POST', `/draft_orders.json`, {
-      draft_order: { line_items: [{ variant_id: vid, quantity: qty }] },
-    });
-    draft = resp.body && resp.body.draft_order;
-  }
-  if (!draft || !draft.invoice_url) {
-    return {
-      error: 'draft order failed',
-      shop_domain: SHOP || null,
-      status: resp && resp.status,
-      detail: resp && resp.body,
-    };
-  }
+  lines[vid] = (lines[vid] || 0) + qty;
+
+  const spec = Object.keys(lines)
+    .map((k) => `${k}:${lines[k]}`)
+    .join(',');
+  const checkout_url = `https://${SHOP}/cart/${spec}?storefront=true`;
 
   await http({
     method: 'POST',
@@ -236,13 +139,13 @@ async function add_to_cart({ shopify_variant_id, quantity }) {
     body: {
       tenant_id: tenantId,
       contact_id: contactId,
-      cart_id: String(draft.id),
-      checkout_url: draft.invoice_url,
+      cart_id: spec,
+      checkout_url,
       updated_at: new Date().toISOString(),
     },
   });
 
-  return { added: { quantity: qty }, checkout_url: draft.invoice_url };
+  return { added: { variant_id: vid, quantity: qty }, checkout_url };
 }
 
 async function capture_return_channels(args) {
@@ -338,7 +241,7 @@ const ENV = {
   has_anthropic_key: !!ANTHROPIC,
   has_sb_url: !!SB_URL,
   has_voyage: !!VOYAGE,
-  has_shopify_client_creds: !!(SHOPIFY_CLIENT_ID && SHOPIFY_CLIENT_SECRET),
+  has_shop_domain: !!SHOP,
   bm_keys: bm ? Object.keys(bm) : null,
   messages_len: Array.isArray(bm && bm.messages) ? bm.messages.length : 'n/a',
 };
