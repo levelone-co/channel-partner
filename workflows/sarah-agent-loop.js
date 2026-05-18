@@ -87,24 +87,45 @@ const sbHeaders = {
 // --- Shopify Admin API (Draft Orders) — reuses the proven client_credentials
 // auth the ingest script uses. No Storefront token needed. ---
 let _adminToken = null;
+let _adminTokenDiag = null;
 async function adminToken() {
   if (_adminToken) return _adminToken;
-  const r = await http({
-    method: 'POST',
-    url: `https://${SHOP}/admin/oauth/access_token`,
-    body: {
-      grant_type: 'client_credentials',
-      client_id: $vars.SHOPIFY_CLIENT_ID,
-      client_secret: $vars.SHOPIFY_CLIENT_SECRET,
-    },
-  });
-  _adminToken = r.body && r.body.access_token;
+  // Form-encoded — matches the proven ingest-script path. Shopify's
+  // /admin/oauth/access_token rejects JSON for client_credentials.
+  const form =
+    `grant_type=client_credentials` +
+    `&client_id=${encodeURIComponent(SHOPIFY_CLIENT_ID || '')}` +
+    `&client_secret=${encodeURIComponent(SHOPIFY_CLIENT_SECRET || '')}`;
+  try {
+    const res = await helpers.httpRequest({
+      method: 'POST',
+      url: `https://${SHOP}/admin/oauth/access_token`,
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: form,
+      returnFullResponse: true,
+      ignoreHttpStatusErrors: true,
+    });
+    let b = res.body;
+    if (typeof b === 'string') {
+      try { b = JSON.parse(b); } catch (_e) { /* keep string */ }
+    }
+    _adminToken = b && b.access_token;
+    _adminTokenDiag = {
+      status: res.statusCode,
+      body: typeof b === 'string' ? String(b).slice(0, 300) : b,
+      has_client_id: !!SHOPIFY_CLIENT_ID,
+      has_client_secret: !!SHOPIFY_CLIENT_SECRET,
+    };
+  } catch (e) {
+    _adminTokenDiag = { error: String((e && (e.message || e)) || e) };
+  }
   return _adminToken;
 }
 
 async function adminApi(method, path, body) {
   const token = await adminToken();
-  if (!token) return { ok: false, status: 0, body: { __error: 'admin token mint failed' } };
+  if (!token)
+    return { ok: false, status: 0, body: { __error: 'admin token mint failed', mint: _adminTokenDiag } };
   return http({
     method,
     url: `https://${SHOP}/admin/api/${SHOPIFY_API_VERSION}${path}`,
