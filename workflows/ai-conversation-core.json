@@ -408,7 +408,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"tenant_id\": {{ JSON.stringify($('Build Messages').first().json.tenant_id) }},\n  \"contact_id\": {{ JSON.stringify($('Build Messages').first().json.contact_id) }},\n  \"channel\": {{ JSON.stringify($('Build Messages').first().json.channel) }},\n  \"role\": \"assistant\",\n  \"content\": {{ JSON.stringify($json.content[0].text) }},\n  \"metadata\": {\n    \"model\": {{ JSON.stringify($json.model) }},\n    \"input_tokens\": {{ $json.usage.input_tokens }},\n    \"output_tokens\": {{ $json.usage.output_tokens }},\n    \"stop_reason\": {{ JSON.stringify($json.stop_reason) }}\n  }\n}",
+        "jsonBody": "={\n  \"tenant_id\": {{ JSON.stringify($('Build Messages').first().json.tenant_id) }},\n  \"contact_id\": {{ JSON.stringify($('Build Messages').first().json.contact_id) }},\n  \"channel\": {{ JSON.stringify($('Build Messages').first().json.channel) }},\n  \"role\": \"assistant\",\n  \"content\": {{ JSON.stringify($json.content[0].text) }},\n  \"metadata\": {\n    \"model\": {{ JSON.stringify($json.model) }},\n    \"input_tokens\": {{ $json.usage.input_tokens || 0 }},\n    \"output_tokens\": {{ $json.usage.output_tokens || 0 }},\n    \"stop_reason\": {{ JSON.stringify($json.stop_reason) }},\n    \"_agent\": {{ JSON.stringify($json._agent || {}) }}\n  }\n}",
         "options": {}
       },
       "id": "6ce6cc7c-f636-45f1-8e8d-fbe47b62fb45",
