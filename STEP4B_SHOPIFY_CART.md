@@ -1,5 +1,13 @@
 # Step 4b — "Shopify Cart" sub-workflow (real Draft Orders via OAuth2)
 
+> **STATUS: DORMANT (operator decision 2026-05-18).** The customer-facing
+> checkout path is the zero-auth Shopify cart **permalink** (loads into the
+> visitor's real on-site cart). This draft-order sub-workflow is NOT wired
+> into the conversational flow. Kept for a possible future estate-side
+> 'record every cart as a Shopify draft' feature; the OAuth2 plumbing here
+> is proven working if revived.
+
+
 Replaces the bare permalink with a **real Shopify Draft Order** (admin-visible, attributed, invoice-emailable) using the n8n **Shopify OAuth2 credential** — the only place n8n allows that credential. The permalink stays as an automatic backstop: if this sub-workflow is unset or fails, the agent loop falls back to the permalink so cart behaviour never regresses.
 
 ## Architecture
