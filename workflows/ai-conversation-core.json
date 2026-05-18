@@ -408,7 +408,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"tenant_id\": {{ JSON.stringify($('Build Messages').first().json.tenant_id) }},\n  \"contact_id\": {{ JSON.stringify($('Build Messages').first().json.contact_id) }},\n  \"channel\": {{ JSON.stringify($('Build Messages').first().json.channel) }},\n  \"role\": \"assistant\",\n  \"content\": {{ JSON.stringify($json.content[0].text) }},\n  \"metadata\": {\n    \"model\": {{ JSON.stringify($json.model) }},\n    \"input_tokens\": {{ $json.usage.input_tokens || 0 }},\n    \"output_tokens\": {{ $json.usage.output_tokens || 0 }},\n    \"stop_reason\": {{ JSON.stringify($json.stop_reason) }},\n    \"_agent\": {{ JSON.stringify($json._agent || {}) }}\n  }\n}",
+        "jsonBody": "={{ JSON.stringify({ tenant_id: $('Build Messages').first().json.tenant_id, contact_id: $('Build Messages').first().json.contact_id, channel: $('Build Messages').first().json.channel, role: 'assistant', content: ($json.content && $json.content[0] && $json.content[0].text) || '', metadata: { model: $json.model || null, input_tokens: ($json.usage && $json.usage.input_tokens) || 0, output_tokens: ($json.usage && $json.usage.output_tokens) || 0, stop_reason: $json.stop_reason || null, _agent: $json._agent || {} } }) }}",
         "options": {}
       },
       "id": "6ce6cc7c-f636-45f1-8e8d-fbe47b62fb45",
@@ -567,9 +567,18 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "x-api-key", "value": "={{ $vars.ANTHROPIC_API_KEY }}" },
-            { "name": "anthropic-version", "value": "2023-06-01" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "x-api-key",
+              "value": "={{ $vars.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -581,7 +590,10 @@
       "name": "Extract Entities",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [448, 420],
+      "position": [
+        448,
+        420
+      ],
       "executeOnce": true,
       "onError": "continueRegularOutput"
     },
@@ -593,18 +605,29 @@
       "name": "Parse Entities",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [672, 420],
+      "position": [
+        672,
+        420
+      ],
       "executeOnce": true
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "leftValue": "={{ $json._has_any }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -615,7 +638,10 @@
       "name": "Has Entities?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [896, 420]
+      "position": [
+        896,
+        420
+      ]
     },
     {
       "parameters": {
@@ -624,9 +650,18 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $vars.GHL_API_TOKEN }}" },
-            { "name": "Version", "value": "2021-07-28" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $vars.GHL_API_TOKEN }}"
+            },
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -638,7 +673,10 @@
       "name": "Update GHL Contact (extraction)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [1120, 420],
+      "position": [
+        1120,
+        420
+      ],
       "executeOnce": true,
       "onError": "continueRegularOutput"
     }
@@ -675,21 +713,33 @@
     "Extract Entities": {
       "main": [
         [
-          { "node": "Parse Entities", "type": "main", "index": 0 }
+          {
+            "node": "Parse Entities",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Parse Entities": {
       "main": [
         [
-          { "node": "Has Entities?", "type": "main", "index": 0 }
+          {
+            "node": "Has Entities?",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Has Entities?": {
       "main": [
         [
-          { "node": "Update GHL Contact (extraction)", "type": "main", "index": 0 }
+          {
+            "node": "Update GHL Contact (extraction)",
+            "type": "main",
+            "index": 0
+          }
         ],
         []
       ]
