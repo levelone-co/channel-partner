@@ -159,8 +159,37 @@ async function persistCart(lines) {
   });
   return {
     cart: entries.map((k) => ({ variant_id: k, quantity: lines[k] })),
-    checkout_url,
+    checkout_url, // permalink (backstop)
   };
+}
+
+// Commit a lines map: always persist + build the permalink backstop, then
+// try the "Shopify Cart" sub-workflow for a real Draft Order. Prefer the
+// draft invoice_url; fall back to the permalink if the sub-workflow is
+// unset/fails so cart behaviour never regresses.
+async function commitCart(lines) {
+  const base = await persistCart(lines); // backstop: spec + permalink
+  const entries = Object.keys(lines).filter((k) => lines[k] > 0);
+  if (!entries.length) return { cleared: true, checkout_url: null, via: 'cleared' };
+
+  const url = $vars.SHOPIFY_CART_WEBHOOK_URL;
+  if (url) {
+    const r = await http({
+      method: 'POST',
+      url,
+      body: {
+        tenant_id: tenantId,
+        contact_id: contactId,
+        lines: entries.map((k) => ({ variant_id: k, quantity: lines[k] })),
+      },
+    });
+    const out = r.body || {};
+    if (r.ok && out.ok && out.invoice_url) {
+      return { cart: base.cart, checkout_url: out.invoice_url, via: 'draft_order' };
+    }
+    return { cart: base.cart, checkout_url: base.checkout_url, via: 'permalink_backstop', draft_error: out };
+  }
+  return { cart: base.cart, checkout_url: base.checkout_url, via: 'permalink_only' };
 }
 
 async function add_to_cart({ shopify_variant_id, quantity }) {
@@ -169,7 +198,7 @@ async function add_to_cart({ shopify_variant_id, quantity }) {
   if (!vid) return { error: 'invalid variant id' };
   const lines = await readCartLines();
   lines[vid] = (lines[vid] || 0) + qty;
-  return persistCart(lines);
+  return commitCart(lines);
 }
 
 // Full control: replace the ENTIRE cart with exactly `items`
@@ -181,8 +210,7 @@ async function set_cart({ items }) {
     const q = Math.max(0, Math.min(24, parseInt(it.quantity, 10) || 0));
     if (vid && q > 0) lines[vid] = q;
   }
-  const res = await persistCart(lines);
-  return Object.keys(lines).length ? res : { cleared: true, checkout_url: null };
+  return commitCart(lines);
 }
 
 async function capture_return_channels(args) {

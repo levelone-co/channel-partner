@@ -1,0 +1,147 @@
+{
+  "name": "Shopify Cart",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "shopify-cart",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "20000000-0000-0000-0000-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "webhookId": "shopify-cart"
+    },
+    {
+      "parameters": {
+        "url": "={{ $vars.SUPABASE_URL }}/rest/v1/customer_carts",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "tenant_id", "value": "=eq.{{ $json.body.tenant_id }}" },
+            { "name": "contact_id", "value": "=eq.{{ $json.body.contact_id }}" },
+            { "name": "select", "value": "draft_order_id" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $vars.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $vars.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "20000000-0000-0000-0000-000000000002",
+      "name": "Get Cart Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [220, 0],
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const b = $('Webhook').first().json.body || {};\nconst lines = (Array.isArray(b.lines) ? b.lines : [])\n  .map((l) => ({\n    variant_id: parseInt(String(l.variant_id != null ? l.variant_id : l.shopify_variant_id).replace(/[^0-9]/g, ''), 10),\n    quantity: Math.max(1, Math.min(24, parseInt(l.quantity, 10) || 1)),\n  }))\n  .filter((l) => l.variant_id);\nconst rows = $('Get Cart Row').all().map((i) => i.json).filter((o) => o && Object.keys(o).length > 0);\nconst draftId = (rows[0] && rows[0].draft_order_id) || null;\nconst SHOP = $vars.SHOPIFY_STORE_DOMAIN;\nconst V = '2024-10';\nconst body = { draft_order: { line_items: lines } };\nlet method = 'POST';\nlet url = `https://${SHOP}/admin/api/${V}/draft_orders.json`;\nif (draftId) {\n  method = 'PUT';\n  url = `https://${SHOP}/admin/api/${V}/draft_orders/${draftId}.json`;\n  body.draft_order.id = parseInt(draftId, 10);\n}\nif (!lines.length) {\n  return [{ json: { skip: true, tenant_id: b.tenant_id, contact_id: b.contact_id } }];\n}\nreturn [{ json: { skip: false, method, url, body, tenant_id: b.tenant_id, contact_id: b.contact_id } }];"
+      },
+      "id": "20000000-0000-0000-0000-000000000003",
+      "name": "Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.method }}",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "shopifyOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": { "response": { "response": { "neverError": true, "fullResponse": false } } }
+      },
+      "id": "20000000-0000-0000-0000-000000000004",
+      "name": "Shopify Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [660, 0],
+      "executeOnce": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "shopifyOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Shopify_account_-_channel-partner_-_level-24-co"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const plan = $('Plan').first().json;\nif (plan.skip) {\n  return [{ json: { ok: true, cleared: true, invoice_url: null, draft_order_id: null, tenant_id: plan.tenant_id, contact_id: plan.contact_id } }];\n}\nconst resp = $('Shopify Draft').first().json || {};\nconst draft = resp.draft_order || (resp.body && resp.body.draft_order);\nif (!draft || !draft.invoice_url) {\n  return [{ json: { ok: false, error: 'draft order failed', detail: resp, tenant_id: plan.tenant_id, contact_id: plan.contact_id } }];\n}\nreturn [{ json: { ok: true, invoice_url: draft.invoice_url, draft_order_id: String(draft.id), tenant_id: plan.tenant_id, contact_id: plan.contact_id } }];"
+      },
+      "id": "20000000-0000-0000-0000-000000000005",
+      "name": "Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 0],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $vars.SUPABASE_URL }}/rest/v1/customer_carts?on_conflict=tenant_id,contact_id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $vars.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $vars.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "resolution=merge-duplicates,return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tenant_id: $json.tenant_id, contact_id: $json.contact_id, draft_order_id: $json.draft_order_id, checkout_url: $json.invoice_url, updated_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "20000000-0000-0000-0000-000000000006",
+      "name": "Persist Cart",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1100, 0],
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('Result').first().json) }}",
+        "options": {}
+      },
+      "id": "20000000-0000-0000-0000-000000000007",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1320, 0]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Get Cart Row", "type": "main", "index": 0 }]] },
+    "Get Cart Row": { "main": [[{ "node": "Plan", "type": "main", "index": 0 }]] },
+    "Plan": { "main": [[{ "node": "Shopify Draft", "type": "main", "index": 0 }]] },
+    "Shopify Draft": { "main": [[{ "node": "Result", "type": "main", "index": 0 }]] },
+    "Result": { "main": [[{ "node": "Persist Cart", "type": "main", "index": 0 }]] },
+    "Persist Cart": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": []
+}
