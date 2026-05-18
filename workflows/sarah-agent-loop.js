@@ -94,18 +94,14 @@ let _adminTokenDiag = null;
 async function adminToken() {
   if (_adminToken) return _adminToken;
 
-  // Optional override: a static Admin API access token, if ever set.
-  const STATIC = $vars.SHOPIFY_ADMIN_TOKEN;
-  if (STATIC) {
-    _adminToken = STATIC;
-    _adminTokenDiag = { source: 'static_SHOPIFY_ADMIN_TOKEN' };
-    return _adminToken;
-  }
-
-  // client_credentials — credentials go in the URL QUERY STRING (proven
-  // working in Postman), NOT the body. Returns a short-lived shpua_ token
-  // (expires_in ~86400s). We mint fresh per execution; no cross-run cache.
-  try {
+  // Primary: client_credentials — credentials in the URL QUERY STRING
+  // (proven working against level-24-co), NOT the body. Returns a
+  // short-lived token (expires_in ~86400s) carrying the app's full
+  // scope incl. write_draft_orders. Minted fresh per execution.
+  // This is preferred over any static SHOPIFY_ADMIN_TOKEN so a stale
+  // leftover Variable (e.g. an atkn_ value) can't shadow the good path.
+  if (SHOPIFY_CLIENT_ID && SHOPIFY_CLIENT_SECRET) {
+    try {
     const qs =
       `grant_type=client_credentials` +
       `&client_id=${encodeURIComponent(SHOPIFY_CLIENT_ID || '')}` +
@@ -131,8 +127,16 @@ async function adminToken() {
       has_client_id: !!SHOPIFY_CLIENT_ID,
       has_client_secret: !!SHOPIFY_CLIENT_SECRET,
     };
-  } catch (e) {
-    _adminTokenDiag = { error: String((e && (e.message || e)) || e) };
+    } catch (e) {
+      _adminTokenDiag = { error: String((e && (e.message || e)) || e) };
+    }
+  }
+
+  // Fallback: a static Admin API access token, only if client_credentials
+  // didn't produce one (or no client creds set).
+  if (!_adminToken && $vars.SHOPIFY_ADMIN_TOKEN) {
+    _adminToken = $vars.SHOPIFY_ADMIN_TOKEN;
+    _adminTokenDiag = { source: 'static_SHOPIFY_ADMIN_TOKEN_fallback' };
   }
   return _adminToken;
 }
