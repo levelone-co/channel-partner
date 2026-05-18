@@ -237,7 +237,7 @@ const tools = [
 
 // ---- the loop -------------------------------------------------------------
 
-function fallback(text) {
+function fallback(text, diag) {
   return [
     {
       json: {
@@ -246,10 +246,28 @@ function fallback(text) {
         content: [{ type: 'text', text }],
         reply_text: text,
         usage: {},
-        _agent: { error: true },
+        _agent: { error: true, diag: diag || null },
       },
     },
   ];
+}
+
+// Environment probe — surfaced in _agent.diag so we can see what the
+// task runner actually provides without guessing.
+const ENV = {
+  has_fetch: typeof fetch !== 'undefined',
+  has_anthropic_key: !!ANTHROPIC,
+  has_sb_url: !!SB_URL,
+  has_voyage: !!VOYAGE,
+  bm_keys: bm ? Object.keys(bm) : null,
+  messages_len: Array.isArray(bm && bm.messages) ? bm.messages.length : 'n/a',
+};
+
+if (typeof fetch === 'undefined') {
+  return fallback("Sorry — I'm having a moment. A human will be with you shortly.", {
+    stage: 'no_fetch',
+    env: ENV,
+  });
 }
 
 let messages = Array.isArray(bm.messages) ? bm.messages.slice() : [];
@@ -268,7 +286,11 @@ try {
     }).then((r) => r.json());
 
     if (resp.type === 'error' || !resp.content) {
-      return fallback("Sorry — I'm having a moment. A human will be with you shortly.");
+      return fallback("Sorry — I'm having a moment. A human will be with you shortly.", {
+        stage: 'anthropic_error',
+        anthropic_response: resp,
+        env: ENV,
+      });
     }
 
     if (resp.stop_reason !== 'tool_use') {
@@ -319,7 +341,14 @@ try {
       '';
     return [{ json: finalResp }];
   }
-  return fallback("Let me get a colleague to help with that — one moment.");
+  return fallback("Let me get a colleague to help with that — one moment.", {
+    stage: 'iteration_cap',
+    env: ENV,
+  });
 } catch (e) {
-  return fallback("Sorry — I'm having a moment. A human will be with you shortly.");
+  return fallback("Sorry — I'm having a moment. A human will be with you shortly.", {
+    stage: 'exception',
+    error: String((e && (e.stack || e.message)) || e),
+    env: ENV,
+  });
 }
