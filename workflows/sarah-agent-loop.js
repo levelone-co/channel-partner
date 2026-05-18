@@ -86,6 +86,24 @@ const sbHeaders = {
 // No Admin API, no Storefront, no OAuth, no token. Lines accumulate per
 // (tenant, contact) in customer_carts so multiple adds build one cart.
 
+async function search_wines({ query }) {
+  const emb = await http({
+    method: 'POST',
+    url: 'https://api.voyageai.com/v1/embeddings',
+    headers: { Authorization: `Bearer ${VOYAGE}` },
+    body: { model: 'voyage-4-lite', input: [query], input_type: 'query', output_dimension: 512 },
+  });
+  const vector = emb.body && emb.body.data && emb.body.data[0] && emb.body.data[0].embedding;
+  if (!vector) return { error: 'embedding failed', detail: emb.body };
+  const r = await http({
+    method: 'POST',
+    url: `${SB_URL}/rest/v1/rpc/search_wines`,
+    headers: sbHeaders,
+    body: { p_tenant_id: tenantId, p_query_embedding: vector, p_match_count: 3 },
+  });
+  return r.ok ? { wines: r.body } : { error: 'search failed', detail: r.body };
+}
+
 async function check_stock({ shopify_variant_id }) {
   // Backed by the ingested catalogue (Supabase), not Shopify — search_wines
   // already only surfaces inventory_available wines, so this is a soft check.
