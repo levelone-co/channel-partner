@@ -168,11 +168,12 @@ async function persistCart(lines) {
 // draft invoice_url; fall back to the permalink if the sub-workflow is
 // unset/fails so cart behaviour never regresses.
 async function commitCart(lines) {
-  const base = await persistCart(lines); // backstop: spec + permalink
+  const base = await persistCart(lines); // backstop: spec + permalink (empty clears it)
   const entries = Object.keys(lines).filter((k) => lines[k] > 0);
-  if (!entries.length) return { cleared: true, checkout_url: null, via: 'cleared' };
-
   const url = $vars.SHOPIFY_CART_WEBHOOK_URL;
+
+  // Always call the sub-workflow when configured — including the empty
+  // case, so it DELETEs the open Shopify draft order on a clear.
   if (url) {
     const r = await http({
       method: 'POST',
@@ -184,11 +185,17 @@ async function commitCart(lines) {
       },
     });
     const out = r.body || {};
+    if (!entries.length) {
+      return { cleared: true, checkout_url: null, via: out && out.cleared ? 'draft_cleared' : 'cleared' };
+    }
     if (r.ok && out.ok && out.invoice_url) {
       return { cart: base.cart, checkout_url: out.invoice_url, via: 'draft_order' };
     }
     return { cart: base.cart, checkout_url: base.checkout_url, via: 'permalink_backstop', draft_error: out };
   }
+
+  // No sub-workflow configured: permalink-only path.
+  if (!entries.length) return { cleared: true, checkout_url: null, via: 'cleared' };
   return { cart: base.cart, checkout_url: base.checkout_url, via: 'permalink_only' };
 }
 
