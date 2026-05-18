@@ -123,33 +123,28 @@ async function check_stock({ shopify_variant_id }) {
   };
 }
 
-async function add_to_cart({ shopify_variant_id, quantity }) {
-  const qty = Math.max(1, Math.min(24, parseInt(quantity, 10) || 1));
-  const vid = String(shopify_variant_id).replace(/[^0-9]/g, '');
-  if (!vid) return { error: 'invalid variant id' };
-
-  // cart_id column holds the running line spec "vid:qty,vid:qty".
-  const existing = await http({
+// Shared: read current lines, persist a lines map, return permalink.
+// `lines` is { variantId: qty }. Empty map => cleared cart (no permalink).
+async function readCartLines() {
+  const r = await http({
     url:
       `${SB_URL}/rest/v1/customer_carts?tenant_id=eq.${encodeURIComponent(tenantId)}` +
       `&contact_id=eq.${encodeURIComponent(contactId)}&select=cart_id`,
     headers: sbHeaders,
   });
-  const prev =
-    (Array.isArray(existing.body) && existing.body[0] && existing.body[0].cart_id) || '';
-
+  const prev = (Array.isArray(r.body) && r.body[0] && r.body[0].cart_id) || '';
   const lines = {};
   for (const part of String(prev).split(',')) {
     const m = part.match(/^(\d+):(\d+)$/);
     if (m) lines[m[1]] = (lines[m[1]] || 0) + parseInt(m[2], 10);
   }
-  lines[vid] = (lines[vid] || 0) + qty;
+  return lines;
+}
 
-  const spec = Object.keys(lines)
-    .map((k) => `${k}:${lines[k]}`)
-    .join(',');
-  const checkout_url = `https://${SHOP}/cart/${spec}?storefront=true`;
-
+async function persistCart(lines) {
+  const entries = Object.keys(lines).filter((k) => lines[k] > 0);
+  const spec = entries.map((k) => `${k}:${lines[k]}`).join(',');
+  const checkout_url = spec ? `https://${SHOP}/cart/${spec}?storefront=true` : null;
   await http({
     method: 'POST',
     url: `${SB_URL}/rest/v1/customer_carts?on_conflict=tenant_id,contact_id`,
@@ -162,8 +157,32 @@ async function add_to_cart({ shopify_variant_id, quantity }) {
       updated_at: new Date().toISOString(),
     },
   });
+  return {
+    cart: entries.map((k) => ({ variant_id: k, quantity: lines[k] })),
+    checkout_url,
+  };
+}
 
-  return { added: { variant_id: vid, quantity: qty }, checkout_url };
+async function add_to_cart({ shopify_variant_id, quantity }) {
+  const qty = Math.max(1, Math.min(24, parseInt(quantity, 10) || 1));
+  const vid = String(shopify_variant_id).replace(/[^0-9]/g, '');
+  if (!vid) return { error: 'invalid variant id' };
+  const lines = await readCartLines();
+  lines[vid] = (lines[vid] || 0) + qty;
+  return persistCart(lines);
+}
+
+// Full control: replace the ENTIRE cart with exactly `items`
+// (add/remove/replace/quantity-change all in one). items: [] clears it.
+async function set_cart({ items }) {
+  const lines = {};
+  for (const it of items || []) {
+    const vid = String(it.shopify_variant_id || '').replace(/[^0-9]/g, '');
+    const q = Math.max(0, Math.min(24, parseInt(it.quantity, 10) || 0));
+    if (vid && q > 0) lines[vid] = q;
+  }
+  const res = await persistCart(lines);
+  return Object.keys(lines).length ? res : { cleared: true, checkout_url: null };
 }
 
 async function capture_return_channels(args) {
@@ -188,7 +207,7 @@ async function capture_return_channels(args) {
   return { captured: true };
 }
 
-const HANDLERS = { search_wines, check_stock, add_to_cart, capture_return_channels };
+const HANDLERS = { search_wines, check_stock, add_to_cart, set_cart, capture_return_channels };
 
 // ---- tool schemas (kept in sync with tools/account-tools.json) ------------
 const tools = [
@@ -210,7 +229,7 @@ const tools = [
   {
     name: 'add_to_cart',
     description:
-      "Add a wine variant to the customer's cart; returns a checkout_url. Only after explicit confirmation. Calling this is the ONLY way an item is actually in the cart.",
+      "Incrementally add a wine variant to the customer's prepared cart link; returns a checkout_url that loads the cart when opened. Use for 'add another', 'also add'. Only after explicit confirmation.",
     input_schema: {
       type: 'object',
       properties: {
@@ -218,6 +237,28 @@ const tools = [
         quantity: { type: 'integer', minimum: 1, maximum: 24 },
       },
       required: ['shopify_variant_id', 'quantity'],
+    },
+  },
+  {
+    name: 'set_cart',
+    description:
+      "Replace the customer's ENTIRE prepared cart with exactly these items in one call. Use for remove/replace/clear/change-quantity ('remove everything and add 2 Chenin', 'make it 3 of the Shiraz only', 'clear the cart'). Pass items: [] to empty it. Returns the updated checkout_url.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              shopify_variant_id: { type: 'string' },
+              quantity: { type: 'integer', minimum: 1, maximum: 24 },
+            },
+            required: ['shopify_variant_id', 'quantity'],
+          },
+        },
+      },
+      required: ['items'],
     },
   },
   {

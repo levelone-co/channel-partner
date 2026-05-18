@@ -29,7 +29,7 @@
   },
   {
     "name": "add_to_cart",
-    "description": "Add a wine to the customer's draft cart. Returns the updated checkout URL which the customer can use to complete purchase. Only call after explicit customer confirmation (e.g. 'yes please', 'add it', 'sure').",
+    "description": "Incrementally add a wine variant to the customer's prepared cart link. Returns a checkout_url that loads the cart when the customer opens it. Use for 'add another' / 'also add'. Only call after explicit customer confirmation (e.g. 'yes please', 'add it', 'sure').",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -45,6 +45,28 @@
         }
       },
       "required": ["shopify_variant_id", "quantity"]
+    }
+  },
+  {
+    "name": "set_cart",
+    "description": "Replace the customer's ENTIRE prepared cart with exactly the given items in one call. Use for any remove / replace / clear / change-quantity request ('remove everything and add 2 Chenin', 'make it just 3 Shiraz', 'empty my cart'). Pass items: [] to clear. Returns the updated checkout_url.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "description": "The complete desired cart contents. Empty array clears the cart.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "shopify_variant_id": { "type": "string" },
+              "quantity": { "type": "integer", "minimum": 1, "maximum": 24 }
+            },
+            "required": ["shopify_variant_id", "quantity"]
+          }
+        }
+      },
+      "required": ["items"]
     }
   },
   {
