@@ -15,11 +15,14 @@
  *
  * n8n Variables required:
  *   ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
- *   VOYAGE_API_KEY, SHOPIFY_STORE_DOMAIN, SHOPIFY_CLIENT_ID,
- *   SHOPIFY_CLIENT_SECRET, GHL_API_TOKEN
+ *   VOYAGE_API_KEY, SHOPIFY_STORE_DOMAIN, GHL_API_TOKEN, and ONE of:
+ *     SHOPIFY_ADMIN_TOKEN  (preferred — the atkn_… App automation token
+ *                           a store "Develop apps" Custom App issues), OR
+ *     SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET (only for Partner apps).
  *
- * Cart/stock use the Shopify ADMIN API (Draft Orders) via the same
- * client_credentials mint the ingest script uses — no Storefront token.
+ * Cart/stock use the Shopify ADMIN API (Draft Orders). Store-level
+ * custom apps authenticate with the static Admin token, NOT
+ * client_credentials (Shopify -> "application_cannot_be_found").
  */
 
 const bm = $('Build Messages').first().json;
@@ -90,8 +93,21 @@ let _adminToken = null;
 let _adminTokenDiag = null;
 async function adminToken() {
   if (_adminToken) return _adminToken;
-  // Form-encoded — matches the proven ingest-script path. Shopify's
-  // /admin/oauth/access_token rejects JSON for client_credentials.
+
+  // Preferred: a static Admin API access token (the "App automation
+  // token", atkn_…, that a store-level "Develop apps" Custom App issues).
+  // Store custom apps do NOT support the OAuth client_credentials grant
+  // (Shopify returns "application_cannot_be_found"), so this is the
+  // correct auth for this app type. Mirrors ingest's resolve order.
+  const STATIC = $vars.SHOPIFY_ADMIN_TOKEN;
+  if (STATIC) {
+    _adminToken = STATIC;
+    _adminTokenDiag = { source: 'static_SHOPIFY_ADMIN_TOKEN' };
+    return _adminToken;
+  }
+
+  // Fallback: client_credentials (only works for Partner-dashboard apps).
+  // Form-encoded — Shopify's token endpoint rejects JSON for this grant.
   const form =
     `grant_type=client_credentials` +
     `&client_id=${encodeURIComponent(SHOPIFY_CLIENT_ID || '')}` +
@@ -111,10 +127,12 @@ async function adminToken() {
     }
     _adminToken = b && b.access_token;
     _adminTokenDiag = {
+      source: 'client_credentials',
       status: res.statusCode,
       body: typeof b === 'string' ? String(b).slice(0, 300) : b,
       has_client_id: !!SHOPIFY_CLIENT_ID,
       has_client_secret: !!SHOPIFY_CLIENT_SECRET,
+      note: 'store-level custom apps do not support client_credentials; set SHOPIFY_ADMIN_TOKEN',
     };
   } catch (e) {
     _adminTokenDiag = { error: String((e && (e.message || e)) || e) };
