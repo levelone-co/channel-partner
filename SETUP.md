@@ -339,7 +339,20 @@ For Phase 0 demo, go with the GHL Internal Note path: less wiring, less moving p
    ```
    Expect 0 in the consult_team test runs.
 
-## 9. What comes after Step 3.5
+## 9. Step 4 — Shopify cart tools
 
-- **Step 4 (Shopify tool-use)**: wire `search_wines` / `check_stock` / `add_to_cart` tool branches into the same tool-loop scaffolding built in Step 3. Cart persistence in a new `customer_carts` table.
-- **Voiceflow eval** (parallel evaluation, deferred until Step 3 is verified): build the same Sarah in Voiceflow for the platform comparison.
+Sarah can `search_wines` / `check_stock` / `add_to_cart` and hand the customer a real checkout URL. Implemented as a single agent-loop Code node (`workflows/sarah-agent-loop.js`) replacing the `Call Claude` HTTP node — no fragile n8n cycle.
+
+Full click-by-click in **`STEP4_N8N_CHANGES.md`**. Summary:
+
+1. Run `sql/0006_customer_carts.sql` in Supabase.
+2. Create/confirm the Storefront API token (`shpss_…`) and its scopes; set n8n Variables `SHOPIFY_STORE_DOMAIN` + `SHOPIFY_STOREFRONT_TOKEN`.
+3. Replace the `Call Claude` HTTP node with a Code node (same name) holding `workflows/sarah-agent-loop.js`, mode **Run Once for All Items**.
+4. Verify search/stock/cart per `STEP4_N8N_CHANGES.md` §6, then export → commit.
+
+The agent loop owns the tool dispatch internally: `search_wines` (Voyage embed + `search_wines` RPC), `check_stock` + `add_to_cart` (Shopify Storefront GraphQL, cart persisted in `customer_carts`), `capture_return_channels` (GHL PUT). Returns the final Anthropic response in the same shape the old HTTP node did, so `Log Assistant Turn` / `Send via GHL` / `Respond` are untouched.
+
+## 10. What comes after Step 4
+
+- **Voiceflow eval** (parallel platform comparison): build the same Sarah in Voiceflow, compare quality / latency / prompt ergonomics / cost / lock-in. Deferred until Step 4 is verified.
+- Phase 1 backlog items live in `PROJECT.md` (intent router, streaming, parallel fetches, WhatsApp templates for proactive nurture, All-in-One/Voice follow-up, etc.).
