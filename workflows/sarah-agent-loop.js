@@ -244,6 +244,7 @@ function fallback(text) {
         model: MODEL,
         stop_reason: 'end_turn',
         content: [{ type: 'text', text }],
+        reply_text: text,
         usage: {},
         _agent: { error: true },
       },
@@ -272,6 +273,10 @@ try {
 
     if (resp.stop_reason !== 'tool_use') {
       resp._agent = { tool_log: toolLog, iterations: iter + 1 };
+      resp.reply_text =
+        (Array.isArray(resp.content) &&
+          (resp.content.find((b) => b.type === 'text') || {}).text) ||
+        '';
       return [{ json: resp }];
     }
 
@@ -308,6 +313,10 @@ try {
   }).then((r) => r.json());
   if (finalResp.content) {
     finalResp._agent = { tool_log: toolLog, iterations: MAX_ITERS, capped: true };
+    finalResp.reply_text =
+      (Array.isArray(finalResp.content) &&
+        (finalResp.content.find((b) => b.type === 'text') || {}).text) ||
+      '';
     return [{ json: finalResp }];
   }
   return fallback("Let me get a colleague to help with that — one moment.");

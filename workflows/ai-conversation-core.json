@@ -424,7 +424,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"reply\": {{ JSON.stringify($('Call Claude').first().json.content[0].text) }},\n  \"metadata\": {\n    \"model\": {{ JSON.stringify($('Call Claude').first().json.model) }},\n    \"retrieved_wine_ids\": {{ JSON.stringify($('Build Messages').first().json.retrieved_wine_ids) }}\n  }\n}",
+        "responseBody": "={{ JSON.stringify({ reply: ($('Call Claude').first().json.reply_text) || ($('Call Claude').first().json.content && $('Call Claude').first().json.content[0] && $('Call Claude').first().json.content[0].text) || 'Sorry — I had a brief hiccup. Please send that again and I\\'ll pick right up.', metadata: { model: $('Call Claude').first().json.model || null, retrieved_wine_ids: ($('Build Messages').first().json.retrieved_wine_ids) || [] } }) }}",
         "options": {}
       },
       "id": "ed2f96b0-aa3a-4155-bcbf-50ca227bb249",
@@ -479,7 +479,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "{\"reply\":\"Sorry — I'm having a moment. A human will be with you shortly.\"}",
+        "responseBody": "{\"reply\":\"Sorry — I had a brief hiccup. Please send that again and I'll pick right up.\"}",
         "options": {
           "responseCode": 200
         }
