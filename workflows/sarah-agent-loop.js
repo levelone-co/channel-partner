@@ -15,8 +15,11 @@
  *
  * n8n Variables required:
  *   ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
- *   VOYAGE_API_KEY, SHOPIFY_STORE_DOMAIN, SHOPIFY_STOREFRONT_TOKEN,
- *   GHL_API_TOKEN
+ *   VOYAGE_API_KEY, SHOPIFY_STORE_DOMAIN, SHOPIFY_CLIENT_ID,
+ *   SHOPIFY_CLIENT_SECRET, GHL_API_TOKEN
+ *
+ * Cart/stock use the Shopify ADMIN API (Draft Orders) via the same
+ * client_credentials mint the ingest script uses — no Storefront token.
  */
 
 const bm = $('Build Messages').first().json;
@@ -29,7 +32,8 @@ const SB_URL = $vars.SUPABASE_URL;
 const SB_KEY = $vars.SUPABASE_SERVICE_ROLE_KEY;
 const VOYAGE = $vars.VOYAGE_API_KEY;
 const SHOP = $vars.SHOPIFY_STORE_DOMAIN;
-const SF_TOKEN = $vars.SHOPIFY_STOREFRONT_TOKEN;
+const SHOPIFY_CLIENT_ID = $vars.SHOPIFY_CLIENT_ID;
+const SHOPIFY_CLIENT_SECRET = $vars.SHOPIFY_CLIENT_SECRET;
 const GHL_TOKEN = $vars.GHL_API_TOKEN;
 
 const SHOPIFY_API_VERSION = '2024-10';
@@ -80,16 +84,34 @@ const sbHeaders = {
   Authorization: `Bearer ${SB_KEY}`,
 };
 
-const storefront = (query, variables) =>
-  http({
+// --- Shopify Admin API (Draft Orders) — reuses the proven client_credentials
+// auth the ingest script uses. No Storefront token needed. ---
+let _adminToken = null;
+async function adminToken() {
+  if (_adminToken) return _adminToken;
+  const r = await http({
     method: 'POST',
-    url: `https://${SHOP}/api/${SHOPIFY_API_VERSION}/graphql.json`,
-    headers: { 'X-Shopify-Storefront-Access-Token': SF_TOKEN },
-    body: { query, variables },
+    url: `https://${SHOP}/admin/oauth/access_token`,
+    body: {
+      grant_type: 'client_credentials',
+      client_id: $vars.SHOPIFY_CLIENT_ID,
+      client_secret: $vars.SHOPIFY_CLIENT_SECRET,
+    },
   });
+  _adminToken = r.body && r.body.access_token;
+  return _adminToken;
+}
 
-const variantGid = (id) =>
-  String(id).startsWith('gid://') ? String(id) : `gid://shopify/ProductVariant/${id}`;
+async function adminApi(method, path, body) {
+  const token = await adminToken();
+  if (!token) return { ok: false, status: 0, body: { __error: 'admin token mint failed' } };
+  return http({
+    method,
+    url: `https://${SHOP}/admin/api/${SHOPIFY_API_VERSION}${path}`,
+    headers: { 'X-Shopify-Access-Token': token },
+    body,
+  });
+}
 
 // ---- tool implementations -------------------------------------------------
 
@@ -112,23 +134,17 @@ async function search_wines({ query }) {
 }
 
 async function check_stock({ shopify_variant_id }) {
-  const d = await storefront(
-    `query($id: ID!) { node(id: $id) { ... on ProductVariant {
-       availableForSale quantityAvailable title product { title } } } }`,
-    { id: variantGid(shopify_variant_id) }
-  );
-  const v = d.body && d.body.data && d.body.data.node;
-  if (!v) return { error: 'variant not found', detail: d.body };
-  return {
-    available: v.availableForSale,
-    quantity_available: v.quantityAvailable,
-    wine: `${(v.product && v.product.title) || ''} ${v.title || ''}`.trim(),
-  };
+  const r = await adminApi('GET', `/variants/${shopify_variant_id}.json`);
+  const v = r.body && r.body.variant;
+  if (!v) return { error: 'variant not found', status: r.status, detail: r.body };
+  const qty = typeof v.inventory_quantity === 'number' ? v.inventory_quantity : null;
+  const available = v.inventory_policy === 'continue' || (qty === null ? true : qty > 0);
+  return { available, quantity_available: qty, wine: v.title || '' };
 }
 
 async function add_to_cart({ shopify_variant_id, quantity }) {
   const qty = Math.max(1, Math.min(24, parseInt(quantity, 10) || 1));
-  const line = { merchandiseId: variantGid(shopify_variant_id), quantity: qty };
+  const vid = parseInt(shopify_variant_id, 10);
 
   const existing = await http({
     url:
@@ -137,40 +153,35 @@ async function add_to_cart({ shopify_variant_id, quantity }) {
     headers: sbHeaders,
   });
   const rows = Array.isArray(existing.body) ? existing.body : [];
-  const haveCart = rows.length && rows[0].cart_id;
+  const draftId = rows.length && rows[0].cart_id ? rows[0].cart_id : null;
 
-  let cart, errs, lastResp;
-  if (haveCart) {
-    const d = await storefront(
-      `mutation($cartId: ID!, $lines: [CartLineInput!]!) {
-         cartLinesAdd(cartId: $cartId, lines: $lines) {
-           cart { id checkoutUrl } userErrors { message } } }`,
-      { cartId: rows[0].cart_id, lines: [line] }
+  let draft, resp;
+  if (draftId) {
+    // Append the new line to the existing draft order.
+    const cur = await adminApi('GET', `/draft_orders/${draftId}.json`);
+    const lines = ((cur.body && cur.body.draft_order && cur.body.draft_order.line_items) || []).map(
+      (li) => ({ variant_id: li.variant_id, quantity: li.quantity })
     );
-    lastResp = d;
-    cart = d.body && d.body.data && d.body.data.cartLinesAdd && d.body.data.cartLinesAdd.cart;
-    errs = d.body && d.body.data && d.body.data.cartLinesAdd && d.body.data.cartLinesAdd.userErrors;
+    lines.push({ variant_id: vid, quantity: qty });
+    resp = await adminApi('PUT', `/draft_orders/${draftId}.json`, {
+      draft_order: { id: draftId, line_items: lines },
+    });
+    draft = resp.body && resp.body.draft_order;
   }
-  if (!cart) {
-    const d = await storefront(
-      `mutation($lines: [CartLineInput!]!) {
-         cartCreate(input: { lines: $lines }) {
-           cart { id checkoutUrl } userErrors { message } } }`,
-      { lines: [line] }
-    );
-    lastResp = d;
-    cart = d.body && d.body.data && d.body.data.cartCreate && d.body.data.cartCreate.cart;
-    errs = d.body && d.body.data && d.body.data.cartCreate && d.body.data.cartCreate.userErrors;
+  if (!draft) {
+    resp = await adminApi('POST', `/draft_orders.json`, {
+      draft_order: { line_items: [{ variant_id: vid, quantity: qty }] },
+    });
+    draft = resp.body && resp.body.draft_order;
   }
-  if (!cart)
+  if (!draft || !draft.invoice_url) {
     return {
-      error: 'cart operation failed',
-      userErrors: errs || null,
+      error: 'draft order failed',
       shop_domain: SHOP || null,
-      has_sf_token: !!SF_TOKEN,
-      storefront_status: lastResp && lastResp.status,
-      storefront_body: lastResp && lastResp.body,
+      status: resp && resp.status,
+      detail: resp && resp.body,
     };
+  }
 
   await http({
     method: 'POST',
@@ -179,13 +190,13 @@ async function add_to_cart({ shopify_variant_id, quantity }) {
     body: {
       tenant_id: tenantId,
       contact_id: contactId,
-      cart_id: cart.id,
-      checkout_url: cart.checkoutUrl,
+      cart_id: String(draft.id),
+      checkout_url: draft.invoice_url,
       updated_at: new Date().toISOString(),
     },
   });
 
-  return { added: { quantity: qty }, checkout_url: cart.checkoutUrl };
+  return { added: { quantity: qty }, checkout_url: draft.invoice_url };
 }
 
 async function capture_return_channels(args) {
@@ -281,7 +292,7 @@ const ENV = {
   has_anthropic_key: !!ANTHROPIC,
   has_sb_url: !!SB_URL,
   has_voyage: !!VOYAGE,
-  has_sf_token: !!SF_TOKEN,
+  has_shopify_client_creds: !!(SHOPIFY_CLIENT_ID && SHOPIFY_CLIENT_SECRET),
   bm_keys: bm ? Object.keys(bm) : null,
   messages_len: Array.isArray(bm && bm.messages) ? bm.messages.length : 'n/a',
 };
