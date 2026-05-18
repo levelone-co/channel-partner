@@ -57,7 +57,21 @@ async function http({ method = 'GET', url, headers = {}, body }) {
     });
     return { ok: res.statusCode < 400, status: res.statusCode, body: res.body };
   } catch (e) {
-    return { ok: false, status: 0, body: { __error: String((e && (e.message || e)) || e) } };
+    // Structured error so we can actually see what failed (n8n errors are
+    // objects; String() on them yields "[object Object]").
+    const err = {
+      url,
+      message: e && e.message,
+      description: e && e.description,
+      name: e && e.name,
+      httpCode: e && (e.httpCode || e.statusCode || e.status),
+      cause: e && e.cause && (e.cause.message || String(e.cause)),
+      response_snippet:
+        e && e.response && e.response.body
+          ? String(JSON.stringify(e.response.body)).slice(0, 300)
+          : undefined,
+    };
+    return { ok: false, status: err.httpCode || 0, body: { __error: err } };
   }
 }
 
@@ -125,7 +139,7 @@ async function add_to_cart({ shopify_variant_id, quantity }) {
   const rows = Array.isArray(existing.body) ? existing.body : [];
   const haveCart = rows.length && rows[0].cart_id;
 
-  let cart, errs;
+  let cart, errs, lastResp;
   if (haveCart) {
     const d = await storefront(
       `mutation($cartId: ID!, $lines: [CartLineInput!]!) {
@@ -133,6 +147,7 @@ async function add_to_cart({ shopify_variant_id, quantity }) {
            cart { id checkoutUrl } userErrors { message } } }`,
       { cartId: rows[0].cart_id, lines: [line] }
     );
+    lastResp = d;
     cart = d.body && d.body.data && d.body.data.cartLinesAdd && d.body.data.cartLinesAdd.cart;
     errs = d.body && d.body.data && d.body.data.cartLinesAdd && d.body.data.cartLinesAdd.userErrors;
   }
@@ -143,10 +158,19 @@ async function add_to_cart({ shopify_variant_id, quantity }) {
            cart { id checkoutUrl } userErrors { message } } }`,
       { lines: [line] }
     );
+    lastResp = d;
     cart = d.body && d.body.data && d.body.data.cartCreate && d.body.data.cartCreate.cart;
     errs = d.body && d.body.data && d.body.data.cartCreate && d.body.data.cartCreate.userErrors;
   }
-  if (!cart) return { error: 'cart operation failed', userErrors: errs || null };
+  if (!cart)
+    return {
+      error: 'cart operation failed',
+      userErrors: errs || null,
+      shop_domain: SHOP || null,
+      has_sf_token: !!SF_TOKEN,
+      storefront_status: lastResp && lastResp.status,
+      storefront_body: lastResp && lastResp.body,
+    };
 
   await http({
     method: 'POST',
