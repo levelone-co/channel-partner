@@ -2,15 +2,16 @@
  * Sarah Agent Loop — n8n Code node body.
  *
  * Replaces the old "Call Claude" HTTP Request node. KEEP THE NODE NAMED
- * "Call Claude" so downstream nodes (Log Assistant Turn, Send via GHL,
- * Respond) keep resolving `$('Call Claude').first().json.content[0].text`
- * etc. — this node returns the FINAL Anthropic response object, exact same
- * shape the HTTP node produced.
+ * "Call Claude" so downstream nodes keep resolving
+ * `$('Call Claude').first().json...` — this returns the FINAL Anthropic
+ * response object (plus reply_text + _agent), same shape the HTTP node had.
  *
  * Node settings: Language = JavaScript, Mode = "Run Once for All Items".
- * It catches everything and always returns a valid Anthropic-shaped object,
- * so the workflow never hard-fails here (the old error branch becomes a
- * harmless no-op).
+ *
+ * HTTP via this.helpers.httpRequest — the n8n external JS task runner does
+ * NOT provide a global `fetch`, but it DOES bridge this.helpers.httpRequest
+ * over RPC. Every call is wrapped so the node never throws; on any failure
+ * it returns a graceful fallback with the cause in _agent.diag.
  *
  * n8n Variables required:
  *   ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
@@ -27,40 +28,51 @@ const ANTHROPIC = $vars.ANTHROPIC_API_KEY;
 const SB_URL = $vars.SUPABASE_URL;
 const SB_KEY = $vars.SUPABASE_SERVICE_ROLE_KEY;
 const VOYAGE = $vars.VOYAGE_API_KEY;
-const SHOP = $vars.SHOPIFY_STORE_DOMAIN;          // e.g. level-24-co.myshopify.com
-const SF_TOKEN = $vars.SHOPIFY_STOREFRONT_TOKEN;  // shpss_...
+const SHOP = $vars.SHOPIFY_STORE_DOMAIN;
+const SF_TOKEN = $vars.SHOPIFY_STOREFRONT_TOKEN;
 const GHL_TOKEN = $vars.GHL_API_TOKEN;
 
 const SHOPIFY_API_VERSION = '2024-10';
 const MODEL = 'claude-haiku-4-5-20251001';
 const MAX_ITERS = 5;
 
-// GHL custom-field IDs (Level 24 demo sub-account).
 const FIELD_ID = {
   whatsapp_preferred: 'cZnCWMR3VsZW0YXXcxGL',
   return_channels_captured_at: 'kE3148Mfthnf3UHEPb4N',
 };
 
-const sb = (path, opts = {}) =>
-  fetch(`${SB_URL}/rest/v1/${path}`, {
-    ...opts,
-    headers: {
-      apikey: SB_KEY,
-      Authorization: `Bearer ${SB_KEY}`,
-      'Content-Type': 'application/json',
-      ...(opts.headers || {}),
-    },
-  });
+const helpers = this.helpers;
+
+// Single HTTP primitive. Never throws. Returns { ok, status, body }.
+async function http({ method = 'GET', url, headers = {}, body }) {
+  try {
+    const res = await helpers.httpRequest({
+      method,
+      url,
+      headers,
+      body: body !== undefined ? body : undefined,
+      json: true, // serialise request object + parse response as JSON
+      returnFullResponse: true,
+      ignoreHttpStatusErrors: true,
+    });
+    return { ok: res.statusCode < 400, status: res.statusCode, body: res.body };
+  } catch (e) {
+    return { ok: false, status: 0, body: { __error: String((e && (e.message || e)) || e) } };
+  }
+}
+
+const sbHeaders = {
+  apikey: SB_KEY,
+  Authorization: `Bearer ${SB_KEY}`,
+};
 
 const storefront = (query, variables) =>
-  fetch(`https://${SHOP}/api/${SHOPIFY_API_VERSION}/graphql.json`, {
+  http({
     method: 'POST',
-    headers: {
-      'X-Shopify-Storefront-Access-Token': SF_TOKEN,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ query, variables }),
-  }).then((r) => r.json());
+    url: `https://${SHOP}/api/${SHOPIFY_API_VERSION}/graphql.json`,
+    headers: { 'X-Shopify-Storefront-Access-Token': SF_TOKEN },
+    body: { query, variables },
+  });
 
 const variantGid = (id) =>
   String(id).startsWith('gid://') ? String(id) : `gid://shopify/ProductVariant/${id}`;
@@ -68,41 +80,35 @@ const variantGid = (id) =>
 // ---- tool implementations -------------------------------------------------
 
 async function search_wines({ query }) {
-  const emb = await fetch('https://api.voyageai.com/v1/embeddings', {
+  const emb = await http({
     method: 'POST',
-    headers: { Authorization: `Bearer ${VOYAGE}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'voyage-4-lite',
-      input: [query],
-      input_type: 'query',
-      output_dimension: 512,
-    }),
-  }).then((r) => r.json());
-  const vector = emb?.data?.[0]?.embedding;
-  if (!vector) return { error: 'embedding failed' };
-  const rows = await sb('rpc/search_wines', {
+    url: 'https://api.voyageai.com/v1/embeddings',
+    headers: { Authorization: `Bearer ${VOYAGE}` },
+    body: { model: 'voyage-4-lite', input: [query], input_type: 'query', output_dimension: 512 },
+  });
+  const vector = emb.body && emb.body.data && emb.body.data[0] && emb.body.data[0].embedding;
+  if (!vector) return { error: 'embedding failed', detail: emb.body };
+  const r = await http({
     method: 'POST',
-    body: JSON.stringify({
-      p_tenant_id: tenantId,
-      p_query_embedding: vector,
-      p_match_count: 3,
-    }),
-  }).then((r) => r.json());
-  return { wines: rows };
+    url: `${SB_URL}/rest/v1/rpc/search_wines`,
+    headers: sbHeaders,
+    body: { p_tenant_id: tenantId, p_query_embedding: vector, p_match_count: 3 },
+  });
+  return r.ok ? { wines: r.body } : { error: 'search failed', detail: r.body };
 }
 
 async function check_stock({ shopify_variant_id }) {
-  const data = await storefront(
+  const d = await storefront(
     `query($id: ID!) { node(id: $id) { ... on ProductVariant {
        availableForSale quantityAvailable title product { title } } } }`,
     { id: variantGid(shopify_variant_id) }
   );
-  const v = data?.data?.node;
-  if (!v) return { error: 'variant not found', raw: data?.errors || null };
+  const v = d.body && d.body.data && d.body.data.node;
+  if (!v) return { error: 'variant not found', detail: d.body };
   return {
     available: v.availableForSale,
     quantity_available: v.quantityAvailable,
-    wine: `${v.product?.title || ''} ${v.title || ''}`.trim(),
+    wine: `${(v.product && v.product.title) || ''} ${v.title || ''}`.trim(),
   };
 }
 
@@ -110,12 +116,14 @@ async function add_to_cart({ shopify_variant_id, quantity }) {
   const qty = Math.max(1, Math.min(24, parseInt(quantity, 10) || 1));
   const line = { merchandiseId: variantGid(shopify_variant_id), quantity: qty };
 
-  // Existing cart for this contact?
-  const existing = await sb(
-    `customer_carts?tenant_id=eq.${encodeURIComponent(tenantId)}` +
-      `&contact_id=eq.${encodeURIComponent(contactId)}&select=cart_id,checkout_url`
-  ).then((r) => r.json());
-  const haveCart = Array.isArray(existing) && existing.length && existing[0].cart_id;
+  const existing = await http({
+    url:
+      `${SB_URL}/rest/v1/customer_carts?tenant_id=eq.${encodeURIComponent(tenantId)}` +
+      `&contact_id=eq.${encodeURIComponent(contactId)}&select=cart_id,checkout_url`,
+    headers: sbHeaders,
+  });
+  const rows = Array.isArray(existing.body) ? existing.body : [];
+  const haveCart = rows.length && rows[0].cart_id;
 
   let cart, errs;
   if (haveCart) {
@@ -123,10 +131,10 @@ async function add_to_cart({ shopify_variant_id, quantity }) {
       `mutation($cartId: ID!, $lines: [CartLineInput!]!) {
          cartLinesAdd(cartId: $cartId, lines: $lines) {
            cart { id checkoutUrl } userErrors { message } } }`,
-      { cartId: existing[0].cart_id, lines: [line] }
+      { cartId: rows[0].cart_id, lines: [line] }
     );
-    cart = d?.data?.cartLinesAdd?.cart;
-    errs = d?.data?.cartLinesAdd?.userErrors;
+    cart = d.body && d.body.data && d.body.data.cartLinesAdd && d.body.data.cartLinesAdd.cart;
+    errs = d.body && d.body.data && d.body.data.cartLinesAdd && d.body.data.cartLinesAdd.userErrors;
   }
   if (!cart) {
     const d = await storefront(
@@ -135,21 +143,22 @@ async function add_to_cart({ shopify_variant_id, quantity }) {
            cart { id checkoutUrl } userErrors { message } } }`,
       { lines: [line] }
     );
-    cart = d?.data?.cartCreate?.cart;
-    errs = d?.data?.cartCreate?.userErrors;
+    cart = d.body && d.body.data && d.body.data.cartCreate && d.body.data.cartCreate.cart;
+    errs = d.body && d.body.data && d.body.data.cartCreate && d.body.data.cartCreate.userErrors;
   }
   if (!cart) return { error: 'cart operation failed', userErrors: errs || null };
 
-  await sb('customer_carts?on_conflict=tenant_id,contact_id', {
+  await http({
     method: 'POST',
-    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-    body: JSON.stringify({
+    url: `${SB_URL}/rest/v1/customer_carts?on_conflict=tenant_id,contact_id`,
+    headers: { ...sbHeaders, Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: {
       tenant_id: tenantId,
       contact_id: contactId,
       cart_id: cart.id,
       checkout_url: cart.checkoutUrl,
       updated_at: new Date().toISOString(),
-    }),
+    },
   });
 
   return { added: { quantity: qty }, checkout_url: cart.checkoutUrl };
@@ -162,21 +171,17 @@ async function capture_return_channels(args) {
     id: FIELD_ID.return_channels_captured_at,
     value: new Date().toISOString().slice(0, 10),
   });
-  const body = {
-    firstName: args.first_name || undefined,
-    lastName: args.last_name || undefined,
-    phone: args.phone || args.whatsapp || undefined,
-    email: args.email || undefined,
-    customFields,
-  };
-  await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
+  await http({
     method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${GHL_TOKEN}`,
-      Version: '2021-07-28',
-      'Content-Type': 'application/json',
+    url: `https://services.leadconnectorhq.com/contacts/${contactId}`,
+    headers: { Authorization: `Bearer ${GHL_TOKEN}`, Version: '2021-07-28' },
+    body: {
+      firstName: args.first_name || undefined,
+      lastName: args.last_name || undefined,
+      phone: args.phone || args.whatsapp || undefined,
+      email: args.email || undefined,
+      customFields,
     },
-    body: JSON.stringify(body),
   });
   return { captured: true };
 }
@@ -188,17 +193,12 @@ const tools = [
   {
     name: 'search_wines',
     description:
-      'Search the wine catalogue by intent or attribute. Returns top matches with title, varietal, vintage, price, pairings, awards, plus shopify_variant_id for use with check_stock/add_to_cart.',
-    input_schema: {
-      type: 'object',
-      properties: { query: { type: 'string' } },
-      required: ['query'],
-    },
+      'Search the wine catalogue by intent. Returns matches incl. shopify_variant_id for check_stock/add_to_cart.',
+    input_schema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
   },
   {
     name: 'check_stock',
-    description:
-      'Check live stock for a specific wine VARIANT (a vintage) before adding to cart. Use the shopify_variant_id from the retrieved-context block or search_wines.',
+    description: 'Check live stock for a wine VARIANT before adding to cart.',
     input_schema: {
       type: 'object',
       properties: { shopify_variant_id: { type: 'string' } },
@@ -208,7 +208,7 @@ const tools = [
   {
     name: 'add_to_cart',
     description:
-      "Add a wine variant to the customer's cart. Returns a checkout_url to share. Only call after explicit customer confirmation. Calling this is the ONLY way an item is actually in the cart — never claim it otherwise.",
+      "Add a wine variant to the customer's cart; returns a checkout_url. Only after explicit confirmation. Calling this is the ONLY way an item is actually in the cart.",
     input_schema: {
       type: 'object',
       properties: {
@@ -221,7 +221,7 @@ const tools = [
   {
     name: 'capture_return_channels',
     description:
-      'Backup capture for contact info the customer explicitly shared and that your reply acknowledges. The always-on extraction pipeline already captures silently — only use this when your reply itself refers to it. Never solicit.',
+      'Backup capture for contact info the customer shared and your reply acknowledges. Never solicit.',
     input_schema: {
       type: 'object',
       properties: {
@@ -252,22 +252,33 @@ function fallback(text, diag) {
   ];
 }
 
-// Environment probe — surfaced in _agent.diag so we can see what the
-// task runner actually provides without guessing.
 const ENV = {
-  has_fetch: typeof fetch !== 'undefined',
+  has_httpRequest: !!(helpers && helpers.httpRequest),
   has_anthropic_key: !!ANTHROPIC,
   has_sb_url: !!SB_URL,
   has_voyage: !!VOYAGE,
+  has_sf_token: !!SF_TOKEN,
   bm_keys: bm ? Object.keys(bm) : null,
   messages_len: Array.isArray(bm && bm.messages) ? bm.messages.length : 'n/a',
 };
 
-if (typeof fetch === 'undefined') {
+if (!helpers || !helpers.httpRequest) {
   return fallback("Sorry — I'm having a moment. A human will be with you shortly.", {
-    stage: 'no_fetch',
+    stage: 'no_httpRequest',
     env: ENV,
   });
+}
+
+async function callClaude(withTools) {
+  const r = await http({
+    method: 'POST',
+    url: 'https://api.anthropic.com/v1/messages',
+    headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01' },
+    body: withTools
+      ? { model: MODEL, max_tokens: 1024, system, messages, tools }
+      : { model: MODEL, max_tokens: 1024, system, messages },
+  });
+  return r;
 }
 
 let messages = Array.isArray(bm.messages) ? bm.messages.slice() : [];
@@ -275,19 +286,13 @@ const toolLog = [];
 
 try {
   for (let iter = 0; iter < MAX_ITERS; iter++) {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': ANTHROPIC,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({ model: MODEL, max_tokens: 1024, system, messages, tools }),
-    }).then((r) => r.json());
+    const r = await callClaude(true);
+    const resp = r.body;
 
-    if (resp.type === 'error' || !resp.content) {
+    if (!r.ok || !resp || resp.type === 'error' || !resp.content) {
       return fallback("Sorry — I'm having a moment. A human will be with you shortly.", {
         stage: 'anthropic_error',
+        status: r.status,
         anthropic_response: resp,
         env: ENV,
       });
@@ -296,8 +301,7 @@ try {
     if (resp.stop_reason !== 'tool_use') {
       resp._agent = { tool_log: toolLog, iterations: iter + 1 };
       resp.reply_text =
-        (Array.isArray(resp.content) &&
-          (resp.content.find((b) => b.type === 'text') || {}).text) ||
+        (Array.isArray(resp.content) && (resp.content.find((b) => b.type === 'text') || {}).text) ||
         '';
       return [{ json: resp }];
     }
@@ -312,7 +316,7 @@ try {
         const fn = HANDLERS[block.name];
         result = fn ? await fn(block.input || {}) : { error: `unknown tool ${block.name}` };
       } catch (e) {
-        result = { error: String(e && e.message ? e.message : e) };
+        result = { error: String((e && (e.message || e)) || e) };
       }
       toolLog.push({ name: block.name, input: block.input, result });
       results.push({
@@ -323,17 +327,10 @@ try {
     }
     messages.push({ role: 'user', content: results });
   }
-  // Hit the iteration cap — ask once more without tools for a clean closing turn.
-  const finalResp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': ANTHROPIC,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({ model: MODEL, max_tokens: 1024, system, messages }),
-  }).then((r) => r.json());
-  if (finalResp.content) {
+
+  const fr = await callClaude(false);
+  if (fr.ok && fr.body && fr.body.content) {
+    const finalResp = fr.body;
     finalResp._agent = { tool_log: toolLog, iterations: MAX_ITERS, capped: true };
     finalResp.reply_text =
       (Array.isArray(finalResp.content) &&
@@ -341,7 +338,7 @@ try {
       '';
     return [{ json: finalResp }];
   }
-  return fallback("Let me get a colleague to help with that — one moment.", {
+  return fallback('Let me get a colleague to help with that — one moment.', {
     stage: 'iteration_cap',
     env: ENV,
   });
