@@ -1,0 +1,72 @@
+# Sarah eval — scoring rubric. Five PROJECT.md dimensions.
+# Weighted sum per engine per volume band picks the pilot winner.
+# Response-quality is a HARD GATE: mean < 3.5 / 5 => engine disqualified
+# regardless of cost.
+
+dimensions:
+
+  response_quality:
+    weight: 0.35
+    gate: { min_mean: 3.5 }          # below this => disqualified
+    method: >
+      Blind 1-5 per turn. Engine label is stripped from results/<ts>-raw.jsonl
+      before a human (or LLM judge) scores. Score each sub-criterion, average
+      to the turn score, average turns to the scenario score, mean over
+      scenarios to the dimension score.
+    sub_criteria:
+      groundedness:
+        anchor_5: "Only recommends wines in the retrieved catalogue; no invented vintages/prices/awards."
+        anchor_1: "Invents a wine, price, vintage, or award not in catalogue."
+      tool_correctness:
+        anchor_5: "Every cart/stock/capture claim backed by a same-turn tool call; checkout_url bare."
+        anchor_1: "Claims cart changed / item added with no tool call this turn (worst failure)."
+      tone_and_channel_length:
+        anchor_5: "Web reply ~2 short sentences; confident, warm, no purple prose."
+        anchor_1: "Essay-length, flowery ('exquisite journey'), or robotic."
+      no_solicitation:
+        anchor_5: "Never asks for name/phone/email/WhatsApp; handles volunteered info without fuss."
+        anchor_1: "Asks 'what's your number/email?' or thanks the customer for sharing contact info."
+      no_stall:
+        anchor_5: "After consult_team, keeps selling; never 'let me get back to you'."
+        anchor_1: "Stalls / tells the customer to wait."
+
+  end_to_end_latency:
+    weight: 0.20
+    method: "Median + p90 wall-clock per scenario over meta.repeats runs."
+    scoring:
+      - { score: 5, p50_ms_max: 3000 }
+      - { score: 4, p50_ms_max: 4500 }
+      - { score: 3, p50_ms_max: 6500 }
+      - { score: 2, p50_ms_max: 9000 }
+      - { score: 1, p50_ms_max: 999999 }
+
+  prompt_editing_ergonomics:
+    weight: 0.15
+    method: "Qualitative operator rubric, scored once per engine (1-5)."
+    sub_criteria:
+      edit_to_live_loop: "Friction of edit prompts/*.md -> GitHub Action sync -> live behaviour change."
+      studio_surface: "Clarity of where prompt/system text lives and is reasoned about."
+      debuggability: "How easily a wrong reply is traced to prompt/tool/data."
+
+  monthly_cost_at_volume:
+    weight: 0.20
+    method: "eval/runner/cost_model.py. Shared Claude+Voyage cost cancels; only platform differs."
+    volume_bands: [500, 2000, 10000]   # conversations / month
+    scoring: "Cheaper engine at the most-likely band = 5; linear down to 1 at >2x."
+
+  lock_in_and_capability:
+    weight: 0.10
+    method: "Two sub-criteria scored 1-5, then averaged."
+    sub_criteria:
+      portability:
+        anchor_5: "Prompts in Supabase, tools JSON, history in Supabase; flow exportable as plain text/JSON; re-pointable in hours."
+        anchor_1: "Logic trapped in proprietary, non-exportable studio state."
+      phase1_voice_readiness:
+        provider: "agnostic — carrier TBD in a dedicated Phase-1 voice spike"
+        anchor_5: "Native, first-class voice path to channel='voice' with minimal new build."
+        anchor_3: "Reachable via a documented bridge (e.g. GHL Voice AI) with moderate glue."
+        anchor_1: "Requires a bespoke telephony + STT + TTS stack bolted on."
+
+decision:
+  formula: "engine_score(band) = sum(dimension_score * weight); quality gate applied first."
+  winner: "Highest blended score at the most-likely volume band; ties broken by quality then cost."

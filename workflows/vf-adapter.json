@@ -1,0 +1,169 @@
+{
+  "name": "vf-adapter",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vf-adapter",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "vf-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "webhookId": "vf-adapter"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "tenant_slug",
+              "value": "={{ $json.body.customData?.tenant_slug || $json.body.tenant_slug }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "contact_id",
+              "value": "={{ $json.body.customData?.contact_id || $json.body.contact_id }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "channel_ghl",
+              "value": "={{ $json.body.customData?.channel || $json.body.channel || 'Live_Chat' }}",
+              "type": "string"
+            },
+            {
+              "id": "a3b",
+              "name": "channel",
+              "value": "={{ ({SMS:'sms', Email:'email', WhatsApp:'whatsapp', Live_Chat:'web', FB:'whatsapp', IG:'whatsapp'}[($json.body.customData?.channel || $json.body.channel)] || 'web') }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "message",
+              "value": "={{ $json.body.customData?.message || $json.body.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "vf-extract",
+      "name": "Extract",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0],
+      "notes": "Identical channel-normalisation map to ai-conversation-core's Extract — keeps the channel layer byte-identical so the orchestration engine is the only variable in the eval."
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://general-runtime.voiceflow.com/state/user/{{ encodeURIComponent($json.contact_id) }}/variables",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ $vars.VF_DM_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tenant_slug\": {{ JSON.stringify($json.tenant_slug) }},\n  \"contact_id\": {{ JSON.stringify($json.contact_id) }},\n  \"channel\": {{ JSON.stringify($json.channel) }}\n}",
+        "options": {}
+      },
+      "id": "vf-setvars",
+      "name": "Set VF Vars",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [440, 0],
+      "onError": "continueRegularOutput",
+      "notes": "Inject tenant/contact/channel into the Voiceflow user state so the VF `bootstrap` Function has the same inputs the n8n Extract node produces."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://general-runtime.voiceflow.com/state/user/{{ encodeURIComponent($('Extract').first().json.contact_id) }}/interact",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ $vars.VF_DM_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"request\": { \"type\": \"text\", \"payload\": {{ JSON.stringify($('Extract').first().json.message) }} },\n  \"config\": { \"tts\": false, \"stripSSML\": true }\n}",
+        "options": {}
+      },
+      "id": "vf-call",
+      "name": "Call Voiceflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [660, 0],
+      "onError": "continueRegularOutput",
+      "notes": "Voiceflow Dialog Manager API. userID = the incoming (already eval-namespaced) contact_id, so VF session state maps 1:1 to a contact."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Flatten the Voiceflow trace array into a single reply string.\n// VF returns [{type:'text'|'speak', payload:{message}}, ...].\nconst inp = $input.first().json;\nconst traces = Array.isArray(inp) ? inp : (Array.isArray(inp.body) ? inp.body : (inp.trace || []));\nlet parts = [];\nfor (const t of (traces || [])) {\n  if (!t || !t.type) continue;\n  if (t.type === 'text' || t.type === 'speak') {\n    const m = t.payload && (t.payload.message || t.payload.text);\n    if (m) parts.push(String(m));\n  }\n}\nconst reply = parts.join('\\n').trim()\n  || \"Sorry \\u2014 I had a brief hiccup. Please send that again and I'll pick right up.\";\nreturn [{ json: { reply } }];"
+      },
+      "id": "vf-parse",
+      "name": "Parse VF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 0],
+      "notes": "Conversation logging is owned by the VF `finalize` Function (writes the same Supabase `conversations` rows with metadata.engine='voiceflow') — the adapter deliberately does NOT log, to avoid double-writes."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://services.leadconnectorhq.com/conversations/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $vars.GHL_API_TOKEN }}" },
+            { "name": "Version", "value": "2021-07-28" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"type\": {{ JSON.stringify($('Extract').first().json.channel_ghl) }},\n  \"contactId\": {{ JSON.stringify($('Extract').first().json.contact_id) }},\n  \"message\": {{ JSON.stringify($('Parse VF').first().json.reply) }}\n}",
+        "options": {}
+      },
+      "id": "vf-sendghl",
+      "name": "Send via GHL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1100, 0],
+      "onError": "continueRegularOutput",
+      "notes": "Reused verbatim from ai-conversation-core (continueRegularOutput so Respond always fires even on fake eval contact ids)."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ reply: $('Parse VF').first().json.reply, metadata: { engine: 'voiceflow' } }) }}",
+        "options": {}
+      },
+      "id": "vf-respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1320, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Extract", "type": "main", "index": 0 }]] },
+    "Extract": { "main": [[{ "node": "Set VF Vars", "type": "main", "index": 0 }]] },
+    "Set VF Vars": { "main": [[{ "node": "Call Voiceflow", "type": "main", "index": 0 }]] },
+    "Call Voiceflow": { "main": [[{ "node": "Parse VF", "type": "main", "index": 0 }]] },
+    "Parse VF": { "main": [[{ "node": "Send via GHL", "type": "main", "index": 0 }]] },
+    "Send via GHL": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

@@ -1,0 +1,146 @@
+# Sarah evaluation scenario set — engine-agnostic.
+# Each scenario is run identically against BOTH targets:
+#   n8n  -> contact_id = "eval-n8n-<id>"
+#   vf   -> contact_id = "eval-vf-<id>"
+# `expect` checks are text-observable on the reply. Tool-use / capture / DB
+# assertions are verified post-run by the SQL gates in eval/README.md.
+#
+# check types:
+#   contains      : case-insensitive substring present
+#   not_contains  : case-insensitive substring absent
+#   regex         : Python re.search, case-insensitive
+#   not_regex     : must NOT match
+#   grounded_wine : reply names >=1 wine from the Level 24 catalogue (runner
+#                   loads catalogue titles from Supabase `wines`)
+#   bare_url      : a raw https://.../cart/... appears NOT wrapped in markdown
+#                   (no [..](..), no **, no backticks around it)
+
+meta:
+  tenant_slug: level_24_wines
+  repeats: 5            # N>=5 per scenario per engine for latency stability
+  channels_under_test: [web]   # WhatsApp outbound blocked (memory note); web only
+
+scenarios:
+
+  - id: pairing-steak
+    description: "Grounded recommendation — first-exchange rule."
+    channel: web
+    turns:
+      - user: "what pairs with steak?"
+        expect:
+          - grounded_wine
+          - regex: "(shall i|would you like|want me to).{0,40}(add|cart)|\\?$"
+
+  - id: browse-then-narrow
+    description: "Discovery: one question, then a grounded rec."
+    channel: web
+    turns:
+      - user: "I'm just browsing, what's good?"
+        expect: [grounded_wine]
+      - user: "something bold and red, around R250"
+        expect:
+          - grounded_wine
+          - not_contains: "I don't know"
+
+  - id: add-to-cart-flow
+    description: "add_to_cart must return a bare permalink, no markdown."
+    channel: web
+    turns:
+      - user: "recommend a red for a braai"
+        expect: [grounded_wine]
+      - user: "yes add one bottle to my cart"
+        expect:
+          - regex: "https?://[^ ]*/cart/"
+          - bare_url
+          - not_contains: "I've added it to the cart on the site"
+
+  - id: cart-clear-discipline
+    description: "Clear cart -> set_cart items:[] in the SAME turn. A cart
+                  claim with no tool call this turn is the worst failure."
+    channel: web
+    turns:
+      - user: "add 2 of your flagship red"
+        expect: [regex: "https?://[^ ]*/cart/"]
+      - user: "actually empty my cart completely"
+        expect:
+          - regex: "(cleared|empty|emptied|removed everything|nothing in)"
+          - not_regex: "https?://[^ ]*/cart/[0-9]"   # no stale line spec
+
+  - id: cart-replace
+    description: "Replace whole cart -> set_cart with full final contents."
+    channel: web
+    turns:
+      - user: "add 3 bottles of any white you like"
+        expect: [regex: "https?://[^ ]*/cart/"]
+      - user: "no, make it just 2 of the Shiraz instead"
+        expect:
+          - regex: "https?://[^ ]*/cart/"
+          - bare_url
+
+  - id: silent-capture
+    description: "Volunteered contact info captured silently; reply must NOT
+                  make a fuss or thank for the info, must NOT solicit."
+    channel: web
+    turns:
+      - user: "what's a good gift wine?"
+        expect: [grounded_wine]
+      - user: "I'm Joe, you can WhatsApp me on 0821234567 about new releases"
+        expect:
+          - not_regex: "(what is your|can i have your|what's your|please share your) (phone|email|number|whatsapp|contact)"
+          - not_regex: "thanks for (sharing|giving|your) (your )?(number|details|contact|info)"
+
+  - id: no-solicitation-probe
+    description: "Sarah must never ask for contact details, even when natural."
+    channel: web
+    turns:
+      - user: "how do I hear about new releases?"
+        expect:
+          - not_regex: "(what is your|can i have your|what's your|please share your|give me your) (phone|email|number|whatsapp|contact)"
+      - user: "sounds good"
+        expect:
+          - not_regex: "(what is your|can i have your|what's your|give me your) (phone|email|number|whatsapp)"
+
+  - id: consult-web
+    description: "Out-of-catalogue external question -> consult_web; folds
+                  the result in, does not invent a catalogue item."
+    channel: web
+    turns:
+      - user: "what did Tim Atkin write about SA Pinotage in 2025?"
+        expect:
+          - not_contains: "I don't have access to the internet"
+
+  - id: consult-kb
+    description: "Estate-specific fact -> consult_knowledge_base."
+    channel: web
+    turns:
+      - user: "what time does the tasting room open?"
+        expect:
+          - regex: "10[:.]00.*17[:.]00|10am.*5pm|ten.*five"
+
+  - id: consult-team-no-stall
+    description: "Niche question -> consult_team, but reply must NOT stall."
+    channel: web
+    turns:
+      - user: "can you ship to Mauritius next Thursday?"
+        expect:
+          - not_regex: "(let me get back to|give me a moment|i'll find out|hold on while|i'll confirm)"
+
+  - id: out-of-domain-redirect
+    description: "Non-wine question -> polite redirect, stays on-brand."
+    channel: web
+    turns:
+      - user: "what's the weather in Cape Town tomorrow?"
+        expect:
+          - not_contains: "forecast"
+          - grounded_wine
+
+  - id: multi-turn-memory
+    description: "Cross-turn memory: Sarah recalls the earlier preference."
+    channel: web
+    turns:
+      - user: "I love big tannic reds"
+        expect: [grounded_wine]
+      - user: "what else fits that?"
+        expect:
+          - grounded_wine
+          - not_contains: "what kind of wine do you like"
