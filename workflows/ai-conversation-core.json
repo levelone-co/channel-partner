@@ -8,13 +8,13 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "5ba1da7b-4e3e-4fff-8f43-7f858c45f904",
+      "id": "d2468955-3a27-42d5-8294-81f5a86b8460",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -448,
-        96
+        2368,
+        1056
       ],
       "webhookId": "ai-conversation-core-step3-draft"
     },
@@ -56,13 +56,13 @@
         },
         "options": {}
       },
-      "id": "079dfa3e-a0be-455c-b9cd-60d0ed260ea1",
+      "id": "5f0357bc-ef71-45ce-991c-a09a6e2fe2a3",
       "name": "Extract",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -224,
-        96
+        2592,
+        1056
       ]
     },
     {
@@ -106,13 +106,13 @@
           }
         }
       },
-      "id": "512b0fc8-866d-492f-a591-95c9756f9724",
+      "id": "eefed60f-d979-44d6-9cc1-c03dcef4b0d1",
       "name": "Get Tenant",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        0,
-        96
+        2816,
+        1056
       ]
     },
     {
@@ -154,13 +154,13 @@
         },
         "options": {}
       },
-      "id": "a672e062-b3a7-4da7-91c5-0772ce47700a",
+      "id": "c4dd9d6e-ef9a-4315-941f-49a1c6eb7ebc",
       "name": "Get Prompt",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        224,
-        192
+        3040,
+        1152
       ]
     },
     {
@@ -210,13 +210,13 @@
         },
         "options": {}
       },
-      "id": "1774414a-dcf0-4dfc-85d2-e9d8efb56ec5",
+      "id": "c347bc02-1b65-4c32-bc0c-27b3c1c0e60e",
       "name": "Get History",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        448,
-        192
+        3264,
+        1152
       ],
       "alwaysOutputData": true,
       "executeOnce": true
@@ -243,13 +243,13 @@
         "jsonBody": "={\n  \"model\": \"voyage-4-lite\",\n  \"input\": [{{ JSON.stringify($('Extract').first().json.message) }}],\n  \"input_type\": \"query\",\n  \"output_dimension\": 512\n}",
         "options": {}
       },
-      "id": "f3ba41c1-ecbd-4848-a7d7-25fbc9ad14aa",
+      "id": "3b933361-ef03-421c-91f4-92dc14f578b8",
       "name": "Voyage Embed",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        672,
-        192
+        3488,
+        1152
       ],
       "executeOnce": true
     },
@@ -279,13 +279,13 @@
         "jsonBody": "={\n  \"p_tenant_id\": {{ JSON.stringify($('Get Tenant').first().json.id) }},\n  \"p_query_embedding\": {{ JSON.stringify($json.data[0].embedding) }},\n  \"p_match_count\": 3\n}",
         "options": {}
       },
-      "id": "5724961d-ad08-4bb5-8054-66379cb2ff2f",
+      "id": "a0208417-a3ac-4ef2-b1a7-5ffb8055e30e",
       "name": "Search Wines",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        896,
-        192
+        3712,
+        1152
       ],
       "alwaysOutputData": true,
       "executeOnce": true
@@ -294,13 +294,13 @@
       "parameters": {
         "jsCode": "// Helper: collect a node's items as an array of rows.\nfunction rows(nodeName) {\n  return $(nodeName).all().map(i => i.json).filter(o => o && Object.keys(o).length > 0);\n}\n\nconst promptRows = rows('Get Prompt');\nconst byName = Object.fromEntries(promptRows.map(p => [p.name, p.content]));\nconst promptOrder = [\n  '10-behavioural-training-sale',\n  '15-conversational-data-capture-sale',\n  '20-domain-knowledge-wine',\n  '30-profile-account',\n  '40-playbook-account'\n];\nconst stablePrompt = promptOrder.map(n => byName[n]).filter(Boolean).join('\\n\\n---\\n\\n');\n\n// Contact context from Get Contact (silent — never call attention to having it).\n// IMPORTANT: replace the field IDs below with the actual GHL custom-field IDs\n// from Settings → Custom Fields after the fields are created.\nconst FIELD_ID = {\n  ai_paused: 'GsQWJpXPmL4UpFUyzuOe',\n  whatsapp_preferred: 'cZnCWMR3VsZW0YXXcxGL',\n  return_channels_captured_at: 'kE3148Mfthnf3UHEPb4N',\n  last_wines_discussed: 'fjnOTKILzjC3VCeS6bpw',\n  team_notes: 'MOQaRVRvj1KiHEzIlmuU',\n};\nconst contactItems = $('Get Contact').all().map(i => i.json).filter(Boolean);\nconst contact = contactItems[0]?.contact || {};\nconst customFields = contact.customFields || [];\nconst getField = (id) => (customFields.find(f => f.id === id) || {}).value;\n\nconst isPlaceholderName = (s) => !s || /^(guest|visitor|unknown|anonymous)/i.test(String(s).trim());\nconst realFirstName = isPlaceholderName(contact.firstName) ? '' : contact.firstName;\nconst contactCtx = [];\nif (realFirstName) contactCtx.push(`Customer first name: ${realFirstName}`);\nif (contact.email && !/visitor|guest/i.test(contact.email)) contactCtx.push(`Email on record: ${contact.email}`);\nif (contact.phone) contactCtx.push(`Phone on record: ${contact.phone}`);\nif (getField(FIELD_ID.whatsapp_preferred) === 'Yes') contactCtx.push('Customer prefers WhatsApp.');\nif (getField(FIELD_ID.last_wines_discussed)) contactCtx.push(`Previously discussed: ${getField(FIELD_ID.last_wines_discussed)}`);\nconst teamNotesRaw = getField(FIELD_ID.team_notes);\nif (teamNotesRaw) {\n  try {\n    const notes = JSON.parse(teamNotesRaw);\n    if (Array.isArray(notes) && notes.length) {\n      contactCtx.push(`Team notes received during this conversation that you should fold into your response:\\n${notes.map(n => `- ${n}`).join('\\n')}`);\n    }\n  } catch (_e) { /* not JSON yet */ }\n}\nconst contactBlock = contactCtx.length ? `\\n\\n## Contact context\\n${contactCtx.join('\\n')}` : '';\n\nconst wines = rows('Search Wines');\nconst history = rows('Get History').slice().reverse()\n  .filter((r) => {\n    if (r.role !== 'assistant') return true; // always keep customer turns\n    let md = r.metadata;\n    if (typeof md === 'string') { try { md = JSON.parse(md); } catch (_e) { md = {}; } }\n    if (md && md._agent && md._agent.error === true) return false; // drop logged fallback/outage turns\n    if (typeof r.content === 'string' && /^sorry\\s*[\\u2014-]\\s*i'?m having a moment/i.test(r.content)) return false;\n    return true;\n  })\n  .map((r) => ({ role: r.role, content: r.content }));\nconst extract = $('Extract').first().json;\n\nconst wineBlock = wines.length\n  ? '## Available wines for this conversation\\n' + wines.map((w, i) => {\n      const head = `${i + 1}. **${w.title}** — ${[w.varietal, w.vintage].filter(Boolean).join(' ')}` + (w.price ? `, R${w.price}` : '') + (w.shopify_variant_id ? ` [variant_id: ${w.shopify_variant_id} — use this for check_stock/add_to_cart; never say it aloud]` : '');\n      const body = w.description ? `\\n   ${w.description}` : '';\n      const pair = w.pairings ? `\\n   Pairings: ${w.pairings}.` : '';\n      const award = w.awards ? ` Awards: ${w.awards}.` : '';\n      return head + body + pair + award;\n    }).join('\\n')\n  : '';\n\n// Cache the stable layered prompt + contact context (changes rarely per\n// conversation). Wine block lives in an uncached trailing block.\nconst systemBlocks = [\n  { type: 'text', text: stablePrompt + contactBlock, cache_control: { type: 'ephemeral' } }\n];\nif (wineBlock) {\n  systemBlocks.push({ type: 'text', text: wineBlock });\n}\n\nconst userMsg = { role: 'user', content: `[channel: ${extract.channel}]\\n${extract.message}` };\nconst messages = [...history, userMsg];\n\nreturn [{ json: {\n  systemBlocks,\n  messages,\n  tenant_id: $('Get Tenant').first().json.id,\n  contact_id: extract.contact_id,\n  channel: extract.channel,\n  channel_ghl: extract.channel_ghl,\n  message: extract.message,\n  retrieved_wine_ids: wines.map(w => w.id)\n} }];"
       },
-      "id": "f0ab6343-e96c-439e-8bea-5631ac4efb48",
+      "id": "9f9547d0-9875-4d05-98bb-0e253a4bb148",
       "name": "Build Messages",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1120,
-        192
+        3936,
+        1152
       ],
       "executeOnce": true
     },
@@ -334,13 +334,13 @@
         "jsonBody": "={\n  \"tenant_id\": {{ JSON.stringify($json.tenant_id) }},\n  \"contact_id\": {{ JSON.stringify($json.contact_id) }},\n  \"channel\": {{ JSON.stringify($json.channel) }},\n  \"role\": \"user\",\n  \"content\": {{ JSON.stringify($json.message) }},\n  \"metadata\": { \"retrieved_wine_ids\": {{ JSON.stringify($json.retrieved_wine_ids) }} }\n}",
         "options": {}
       },
-      "id": "433146ee-4e8f-41bc-a366-3e2862a36e22",
+      "id": "31eb6103-f9fc-41a3-8522-b5aca2ad8faa",
       "name": "Log User Turn",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1344,
-        192
+        4160,
+        1152
       ],
       "executeOnce": true
     },
@@ -374,13 +374,13 @@
         "jsonBody": "={{ JSON.stringify({ tenant_id: $('Build Messages').first().json.tenant_id, contact_id: $('Build Messages').first().json.contact_id, channel: $('Build Messages').first().json.channel, role: 'assistant', content: ($json.content && $json.content[0] && $json.content[0].text) || '', metadata: { model: $json.model || null, input_tokens: ($json.usage && $json.usage.input_tokens) || 0, output_tokens: ($json.usage && $json.usage.output_tokens) || 0, stop_reason: $json.stop_reason || null, _agent: $json._agent || {} } }) }}",
         "options": {}
       },
-      "id": "6ce6cc7c-f636-45f1-8e8d-fbe47b62fb45",
+      "id": "caaca84e-e7a9-4387-99eb-c26b7aaa7342",
       "name": "Log Assistant Turn",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1792,
-        192
+        4608,
+        1152
       ],
       "executeOnce": true,
       "onError": "continueErrorOutput"
@@ -391,13 +391,13 @@
         "responseBody": "={{ JSON.stringify({ reply: ($('Call Claude').first().json.reply_text) || ($('Call Claude').first().json.content && $('Call Claude').first().json.content[0] && $('Call Claude').first().json.content[0].text) || 'Sorry — I had a brief hiccup. Please send that again and I\\'ll pick right up.', metadata: { model: $('Call Claude').first().json.model || null, retrieved_wine_ids: ($('Build Messages').first().json.retrieved_wine_ids) || [] } }) }}",
         "options": {}
       },
-      "id": "ed2f96b0-aa3a-4155-bcbf-50ca227bb249",
+      "id": "4b92f4ab-1789-442b-836f-a5639557d9f1",
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2240,
-        192
+        5056,
+        1152
       ],
       "onError": "continueErrorOutput"
     },
@@ -434,10 +434,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        2464,
-        192
+        5280,
+        1152
       ],
-      "id": "7eabeae1-4573-4c9d-8ca9-67675f1eb85a",
+      "id": "60c37789-0b7e-4fb0-a713-241abef58433",
       "name": "Log Error",
       "executeOnce": true
     },
@@ -452,10 +452,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2688,
-        192
+        5504,
+        1152
       ],
-      "id": "0331d8e3-f140-4706-b58c-7f9f4671c11b",
+      "id": "c05f4a41-830e-4859-a8bb-9d53028497af",
       "name": "Respond Fallback"
     },
     {
@@ -476,13 +476,13 @@
         },
         "options": {}
       },
-      "id": "d6c0d5b1-9acc-4ba5-a4d6-382a81633a1c",
+      "id": "00289f71-282f-43fa-b11f-d4c5c26ff1dc",
       "name": "Get Contact",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        224,
-        0
+        3040,
+        960
       ],
       "alwaysOutputData": true,
       "executeOnce": true,
@@ -514,30 +514,31 @@
         "jsonBody": "={\n  \"type\": {{ JSON.stringify($('Build Messages').first().json.channel_ghl) }},\n  \"contactId\": {{ JSON.stringify($('Build Messages').first().json.contact_id) }},\n  \"message\": {{ JSON.stringify($('Call Claude').first().json.content[0].text) }}\n}",
         "options": {}
       },
-      "id": "f9417183-5b06-429c-8c38-05fcd103b365",
+      "id": "44419295-24a2-4ff2-929a-6e1546d1cf20",
       "name": "Send via GHL",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        2016,
-        192
+        4832,
+        1152
       ],
       "executeOnce": true,
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "/**\n * Sarah Agent Loop — n8n Code node body.\n *\n * Replaces the old \"Call Claude\" HTTP Request node. KEEP THE NODE NAMED\n * \"Call Claude\" so downstream nodes keep resolving\n * `$('Call Claude').first().json...` — this returns the FINAL Anthropic\n * response object (plus reply_text + _agent), same shape the HTTP node had.\n *\n * Node settings: Language = JavaScript, Mode = \"Run Once for All Items\".\n *\n * HTTP via this.helpers.httpRequest — the n8n external JS task runner does\n * NOT provide a global `fetch`, but it DOES bridge this.helpers.httpRequest\n * over RPC. Every call is wrapped so the node never throws; on any failure\n * it returns a graceful fallback with the cause in _agent.diag.\n *\n * n8n Variables required:\n *   ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,\n *   VOYAGE_API_KEY, SHOPIFY_STORE_DOMAIN, GHL_API_TOKEN.\n *\n * Cart = a Shopify cart permalink (/cart/{variant}:{qty}). ZERO\n * Shopify auth — no Admin API, no Storefront, no OAuth, no token.\n * Stock is a soft check against the ingested catalogue (Supabase).\n */\n\nconst bm = $('Build Messages').first().json;\nconst system = bm.systemBlocks;\nconst tenantId = bm.tenant_id;\nconst contactId = bm.contact_id;\n\nconst ANTHROPIC = $vars.ANTHROPIC_API_KEY;\nconst SB_URL = $vars.SUPABASE_URL;\nconst SB_KEY = $vars.SUPABASE_SERVICE_ROLE_KEY;\nconst VOYAGE = $vars.VOYAGE_API_KEY;\nconst SHOP = $vars.SHOPIFY_STORE_DOMAIN;\nconst GHL_TOKEN = $vars.GHL_API_TOKEN;\n\nconst SHOPIFY_API_VERSION = '2024-10';\nconst MODEL = 'claude-haiku-4-5-20251001';\nconst MAX_ITERS = 5;\n\nconst FIELD_ID = {\n  whatsapp_preferred: 'cZnCWMR3VsZW0YXXcxGL',\n  return_channels_captured_at: 'kE3148Mfthnf3UHEPb4N',\n};\n\nconst helpers = this.helpers;\n\n// Single HTTP primitive. Never throws. Returns { ok, status, body }.\nasync function http({ method = 'GET', url, headers = {}, body }) {\n  try {\n    const res = await helpers.httpRequest({\n      method,\n      url,\n      headers,\n      body: body !== undefined ? body : undefined,\n      json: true, // serialise request object + parse response as JSON\n      returnFullResponse: true,\n      ignoreHttpStatusErrors: true,\n    });\n    return { ok: res.statusCode < 400, status: res.statusCode, body: res.body };\n  } catch (e) {\n    // Structured error so we can actually see what failed (n8n errors are\n    // objects; String() on them yields \"[object Object]\").\n    const err = {\n      url,\n      message: e && e.message,\n      description: e && e.description,\n      name: e && e.name,\n      httpCode: e && (e.httpCode || e.statusCode || e.status),\n      cause: e && e.cause && (e.cause.message || String(e.cause)),\n      response_snippet:\n        e && e.response && e.response.body\n          ? String(JSON.stringify(e.response.body)).slice(0, 300)\n          : undefined,\n    };\n    return { ok: false, status: err.httpCode || 0, body: { __error: err } };\n  }\n}\n\nconst sbHeaders = {\n  apikey: SB_KEY,\n  Authorization: `Bearer ${SB_KEY}`,\n};\n\n// --- Shopify cart permalink — ZERO auth. /cart/{variant}:{qty},... ---\n// No Admin API, no Storefront, no OAuth, no token. Lines accumulate per\n// (tenant, contact) in customer_carts so multiple adds build one cart.\n\nasync function search_wines({ query }) {\n  const emb = await http({\n    method: 'POST',\n    url: 'https://api.voyageai.com/v1/embeddings',\n    headers: { Authorization: `Bearer ${VOYAGE}` },\n    body: { model: 'voyage-4-lite', input: [query], input_type: 'query', output_dimension: 512 },\n  });\n  const vector = emb.body && emb.body.data && emb.body.data[0] && emb.body.data[0].embedding;\n  if (!vector) return { error: 'embedding failed', detail: emb.body };\n  const r = await http({\n    method: 'POST',\n    url: `${SB_URL}/rest/v1/rpc/search_wines`,\n    headers: sbHeaders,\n    body: { p_tenant_id: tenantId, p_query_embedding: vector, p_match_count: 3 },\n  });\n  return r.ok ? { wines: r.body } : { error: 'search failed', detail: r.body };\n}\n\nasync function check_stock({ shopify_variant_id }) {\n  // Backed by the ingested catalogue (Supabase), not Shopify — search_wines\n  // already only surfaces inventory_available wines, so this is a soft check.\n  const r = await http({\n    url:\n      `${SB_URL}/rest/v1/wines?tenant_id=eq.${encodeURIComponent(tenantId)}` +\n      `&shopify_variant_id=eq.${encodeURIComponent(shopify_variant_id)}` +\n      `&select=title,vintage,inventory_available`,\n    headers: sbHeaders,\n  });\n  const row = Array.isArray(r.body) && r.body[0];\n  if (!row)\n    return { available: true, note: 'not in catalogue cache; checkout will confirm' };\n  return {\n    available: !!row.inventory_available,\n    wine: `${row.title || ''} ${row.vintage || ''}`.trim(),\n  };\n}\n\n// Shared: read current lines, persist a lines map, return permalink.\n// `lines` is { variantId: qty }. Empty map => cleared cart (no permalink).\nasync function readCartLines() {\n  const r = await http({\n    url:\n      `${SB_URL}/rest/v1/customer_carts?tenant_id=eq.${encodeURIComponent(tenantId)}` +\n      `&contact_id=eq.${encodeURIComponent(contactId)}&select=cart_id`,\n    headers: sbHeaders,\n  });\n  const prev = (Array.isArray(r.body) && r.body[0] && r.body[0].cart_id) || '';\n  const lines = {};\n  for (const part of String(prev).split(',')) {\n    const m = part.match(/^(\\d+):(\\d+)$/);\n    if (m) lines[m[1]] = (lines[m[1]] || 0) + parseInt(m[2], 10);\n  }\n  return lines;\n}\n\nasync function persistCart(lines) {\n  const entries = Object.keys(lines).filter((k) => lines[k] > 0);\n  const spec = entries.map((k) => `${k}:${lines[k]}`).join(',');\n  const checkout_url = spec ? `https://${SHOP}/cart/${spec}?storefront=true` : null;\n  await http({\n    method: 'POST',\n    url: `${SB_URL}/rest/v1/customer_carts?on_conflict=tenant_id,contact_id`,\n    headers: { ...sbHeaders, Prefer: 'resolution=merge-duplicates,return=minimal' },\n    body: {\n      tenant_id: tenantId,\n      contact_id: contactId,\n      cart_id: spec,\n      checkout_url,\n      updated_at: new Date().toISOString(),\n    },\n  });\n  return {\n    cart: entries.map((k) => ({ variant_id: k, quantity: lines[k] })),\n    checkout_url, // permalink (backstop)\n  };\n}\n\n// Commit a lines map: always persist + build the permalink backstop, then\n// try the \"Shopify Cart\" sub-workflow for a real Draft Order. Prefer the\n// draft invoice_url; fall back to the permalink if the sub-workflow is\n// unset/fails so cart behaviour never regresses.\n// Customer-facing checkout path = Shopify cart PERMALINK (operator\n// decision 2026-05-18). The customer opens it and the items load into\n// their real on-site cart (visible on that page). No draft order in the\n// conversational flow; shopify-cart.json stays dormant for possible\n// future estate-side records. Full add/remove/replace/clear control is\n// expressed through the regenerated permalink in persistCart.\nasync function commitCart(lines) {\n  const base = await persistCart(lines); // writes spec + permalink (empty clears)\n  const entries = Object.keys(lines).filter((k) => lines[k] > 0);\n  if (!entries.length) return { cleared: true, checkout_url: null, via: 'cleared' };\n  return { cart: base.cart, checkout_url: base.checkout_url, via: 'permalink' };\n}\n\nasync function add_to_cart({ shopify_variant_id, quantity }) {\n  const qty = Math.max(1, Math.min(24, parseInt(quantity, 10) || 1));\n  const vid = String(shopify_variant_id).replace(/[^0-9]/g, '');\n  if (!vid) return { error: 'invalid variant id' };\n  const lines = await readCartLines();\n  lines[vid] = (lines[vid] || 0) + qty;\n  return commitCart(lines);\n}\n\n// Full control: replace the ENTIRE cart with exactly `items`\n// (add/remove/replace/quantity-change all in one). items: [] clears it.\nasync function set_cart({ items }) {\n  const lines = {};\n  for (const it of items || []) {\n    const vid = String(it.shopify_variant_id || '').replace(/[^0-9]/g, '');\n    const q = Math.max(0, Math.min(24, parseInt(it.quantity, 10) || 0));\n    if (vid && q > 0) lines[vid] = q;\n  }\n  return commitCart(lines);\n}\n\nasync function capture_return_channels(args) {\n  const customFields = [];\n  if (args.whatsapp) customFields.push({ id: FIELD_ID.whatsapp_preferred, value: 'Yes' });\n  customFields.push({\n    id: FIELD_ID.return_channels_captured_at,\n    value: new Date().toISOString().slice(0, 10),\n  });\n  await http({\n    method: 'PUT',\n    url: `https://services.leadconnectorhq.com/contacts/${contactId}`,\n    headers: { Authorization: `Bearer ${GHL_TOKEN}`, Version: '2021-07-28' },\n    body: {\n      firstName: args.first_name || undefined,\n      lastName: args.last_name || undefined,\n      phone: args.phone || args.whatsapp || undefined,\n      email: args.email || undefined,\n      customFields,\n    },\n  });\n  return { captured: true };\n}\n\nconst HANDLERS = { search_wines, check_stock, add_to_cart, set_cart, capture_return_channels };\n\n// ---- tool schemas (kept in sync with tools/account-tools.json) ------------\nconst tools = [\n  {\n    name: 'search_wines',\n    description:\n      'Search the wine catalogue by intent. Returns matches incl. shopify_variant_id for check_stock/add_to_cart.',\n    input_schema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },\n  },\n  {\n    name: 'check_stock',\n    description: 'Check live stock for a wine VARIANT before adding to cart.',\n    input_schema: {\n      type: 'object',\n      properties: { shopify_variant_id: { type: 'string' } },\n      required: ['shopify_variant_id'],\n    },\n  },\n  {\n    name: 'add_to_cart',\n    description:\n      \"Incrementally add a wine variant to the customer's prepared cart link; returns a checkout_url that loads the cart when opened. Use for 'add another', 'also add'. Only after explicit confirmation.\",\n    input_schema: {\n      type: 'object',\n      properties: {\n        shopify_variant_id: { type: 'string' },\n        quantity: { type: 'integer', minimum: 1, maximum: 24 },\n      },\n      required: ['shopify_variant_id', 'quantity'],\n    },\n  },\n  {\n    name: 'set_cart',\n    description:\n      \"Replace the customer's ENTIRE prepared cart with exactly these items in one call. Use for remove/replace/clear/change-quantity ('remove everything and add 2 Chenin', 'make it 3 of the Shiraz only', 'clear the cart'). Pass items: [] to empty it. Returns the updated checkout_url.\",\n    input_schema: {\n      type: 'object',\n      properties: {\n        items: {\n          type: 'array',\n          items: {\n            type: 'object',\n            properties: {\n              shopify_variant_id: { type: 'string' },\n              quantity: { type: 'integer', minimum: 1, maximum: 24 },\n            },\n            required: ['shopify_variant_id', 'quantity'],\n          },\n        },\n      },\n      required: ['items'],\n    },\n  },\n  {\n    name: 'capture_return_channels',\n    description:\n      'Backup capture for contact info the customer shared and your reply acknowledges. Never solicit.',\n    input_schema: {\n      type: 'object',\n      properties: {\n        first_name: { type: 'string' },\n        last_name: { type: 'string' },\n        phone: { type: 'string' },\n        whatsapp: { type: 'string' },\n        email: { type: 'string' },\n      },\n    },\n  },\n];\n\n// ---- the loop -------------------------------------------------------------\n\nfunction fallback(text, diag) {\n  return [\n    {\n      json: {\n        model: MODEL,\n        stop_reason: 'end_turn',\n        content: [{ type: 'text', text }],\n        reply_text: text,\n        usage: {},\n        _agent: { error: true, diag: diag || null },\n      },\n    },\n  ];\n}\n\nconst ENV = {\n  has_httpRequest: !!(helpers && helpers.httpRequest),\n  has_anthropic_key: !!ANTHROPIC,\n  has_sb_url: !!SB_URL,\n  has_voyage: !!VOYAGE,\n  has_shop_domain: !!SHOP,\n  bm_keys: bm ? Object.keys(bm) : null,\n  messages_len: Array.isArray(bm && bm.messages) ? bm.messages.length : 'n/a',\n};\n\nif (!helpers || !helpers.httpRequest) {\n  return fallback(\"Sorry — I'm having a moment. A human will be with you shortly.\", {\n    stage: 'no_httpRequest',\n    env: ENV,\n  });\n}\n\nconst sleep = (ms) => new Promise((res) => setTimeout(res, ms));\n\n// Anthropic returns 429 (rate) / 529 (overloaded) / 5xx under load —\n// all transient. Retry with backoff before letting the loop fall back,\n// so a momentary capacity blip never surfaces as a failed turn.\nasync function callClaude(withTools) {\n  const body = withTools\n    ? { model: MODEL, max_tokens: 1024, system, messages, tools }\n    : { model: MODEL, max_tokens: 1024, system, messages };\n  const delays = [800, 1800, 4000, 8000];\n  let r;\n  for (let attempt = 0; attempt <= delays.length; attempt++) {\n    r = await http({\n      method: 'POST',\n      url: 'https://api.anthropic.com/v1/messages',\n      headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01' },\n      body,\n    });\n    const b = r.body || {};\n    const transient =\n      r.status === 429 ||\n      r.status === 529 ||\n      r.status >= 500 ||\n      (b.type === 'error' &&\n        b.error &&\n        (b.error.type === 'overloaded_error' ||\n          b.error.type === 'api_error' ||\n          b.error.type === 'rate_limit_error'));\n    if (!transient || attempt === delays.length) return r;\n    await sleep(delays[attempt]);\n  }\n  return r;\n}\n\nlet messages = Array.isArray(bm.messages) ? bm.messages.slice() : [];\nconst toolLog = [];\n\ntry {\n  for (let iter = 0; iter < MAX_ITERS; iter++) {\n    const r = await callClaude(true);\n    const resp = r.body;\n\n    if (!r.ok || !resp || resp.type === 'error' || !resp.content) {\n      return fallback(\"Sorry — I'm having a moment. A human will be with you shortly.\", {\n        stage: 'anthropic_error',\n        status: r.status,\n        anthropic_response: resp,\n        env: ENV,\n      });\n    }\n\n    if (resp.stop_reason !== 'tool_use') {\n      resp._agent = { tool_log: toolLog, iterations: iter + 1 };\n      resp.reply_text =\n        (Array.isArray(resp.content) && (resp.content.find((b) => b.type === 'text') || {}).text) ||\n        '';\n      return [{ json: resp }];\n    }\n\n    messages.push({ role: 'assistant', content: resp.content });\n\n    const results = [];\n    for (const block of resp.content) {\n      if (block.type !== 'tool_use') continue;\n      let result;\n      try {\n        const fn = HANDLERS[block.name];\n        result = fn ? await fn(block.input || {}) : { error: `unknown tool ${block.name}` };\n      } catch (e) {\n        result = { error: String((e && (e.message || e)) || e) };\n      }\n      toolLog.push({ name: block.name, input: block.input, result });\n      results.push({\n        type: 'tool_result',\n        tool_use_id: block.id,\n        content: JSON.stringify(result),\n      });\n    }\n    messages.push({ role: 'user', content: results });\n  }\n\n  const fr = await callClaude(false);\n  if (fr.ok && fr.body && fr.body.content) {\n    const finalResp = fr.body;\n    finalResp._agent = { tool_log: toolLog, iterations: MAX_ITERS, capped: true };\n    finalResp.reply_text =\n      (Array.isArray(finalResp.content) &&\n        (finalResp.content.find((b) => b.type === 'text') || {}).text) ||\n      '';\n    return [{ json: finalResp }];\n  }\n  return fallback('Let me get a colleague to help with that — one moment.', {\n    stage: 'iteration_cap',\n    env: ENV,\n  });\n} catch (e) {\n  return fallback(\"Sorry — I'm having a moment. A human will be with you shortly.\", {\n    stage: 'exception',\n    error: String((e && (e.stack || e.message)) || e),\n    env: ENV,\n  });\n}\n"
+        "jsCode": "/**\n * Sarah Agent Loop — n8n Code node body.\n *\n * Replaces the old \"Call Claude\" HTTP Request node. KEEP THE NODE NAMED\n * \"Call Claude\" so downstream nodes keep resolving\n * `$('Call Claude').first().json...` — this returns the FINAL Anthropic\n * response object (plus reply_text + _agent), same shape the HTTP node had.\n *\n * Node settings: Language = JavaScript, Mode = \"Run Once for All Items\".\n *\n * HTTP via this.helpers.httpRequest — the n8n external JS task runner does\n * NOT provide a global `fetch`, but it DOES bridge this.helpers.httpRequest\n * over RPC. Every call is wrapped so the node never throws; on any failure\n * it returns a graceful fallback with the cause in _agent.diag.\n *\n * n8n Variables required:\n *   ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,\n *   VOYAGE_API_KEY, SHOPIFY_STORE_DOMAIN, GHL_API_TOKEN.\n *\n * Cart = a Shopify cart permalink (/cart/{variant}:{qty}). ZERO\n * Shopify auth — no Admin API, no Storefront, no OAuth, no token.\n * Stock is a soft check against the ingested catalogue (Supabase).\n */\n\nconst bm = $('Build Messages').first().json;\nconst system = bm.systemBlocks;\nconst tenantId = bm.tenant_id;\nconst contactId = bm.contact_id;\n\nconst ANTHROPIC = $vars.ANTHROPIC_API_KEY;\nconst SB_URL = $vars.SUPABASE_URL;\nconst SB_KEY = $vars.SUPABASE_SERVICE_ROLE_KEY;\nconst VOYAGE = $vars.VOYAGE_API_KEY;\nconst SHOP = $vars.SHOPIFY_STORE_DOMAIN;\nconst GHL_TOKEN = $vars.GHL_API_TOKEN;\n\nconst SHOPIFY_API_VERSION = '2024-10';\nconst MODEL = 'claude-haiku-4-5-20251001';\nconst MAX_ITERS = 5;\n\nconst FIELD_ID = {\n  whatsapp_preferred: 'cZnCWMR3VsZW0YXXcxGL',\n  return_channels_captured_at: 'kE3148Mfthnf3UHEPb4N',\n};\n\nconst helpers = this.helpers;\n\n// Single HTTP primitive. Never throws. Returns { ok, status, body }.\nasync function http({ method = 'GET', url, headers = {}, body }) {\n  try {\n    const res = await helpers.httpRequest({\n      method,\n      url,\n      headers,\n      body: body !== undefined ? body : undefined,\n      json: true, // serialise request object + parse response as JSON\n      returnFullResponse: true,\n      ignoreHttpStatusErrors: true,\n    });\n    return { ok: res.statusCode < 400, status: res.statusCode, body: res.body };\n  } catch (e) {\n    // Structured error so we can actually see what failed (n8n errors are\n    // objects; String() on them yields \"[object Object]\").\n    const err = {\n      url,\n      message: e && e.message,\n      description: e && e.description,\n      name: e && e.name,\n      httpCode: e && (e.httpCode || e.statusCode || e.status),\n      cause: e && e.cause && (e.cause.message || String(e.cause)),\n      response_snippet:\n        e && e.response && e.response.body\n          ? String(JSON.stringify(e.response.body)).slice(0, 300)\n          : undefined,\n    };\n    return { ok: false, status: err.httpCode || 0, body: { __error: err } };\n  }\n}\n\nconst sbHeaders = {\n  apikey: SB_KEY,\n  Authorization: `Bearer ${SB_KEY}`,\n};\n\n// --- Shopify cart permalink — ZERO auth. /cart/{variant}:{qty},... ---\n// No Admin API, no Storefront, no OAuth, no token. Lines accumulate per\n// (tenant, contact) in customer_carts so multiple adds build one cart.\n\nasync function search_wines({ query }) {\n  const emb = await http({\n    method: 'POST',\n    url: 'https://api.voyageai.com/v1/embeddings',\n    headers: { Authorization: `Bearer ${VOYAGE}` },\n    body: { model: 'voyage-4-lite', input: [query], input_type: 'query', output_dimension: 512 },\n  });\n  const vector = emb.body && emb.body.data && emb.body.data[0] && emb.body.data[0].embedding;\n  if (!vector) return { error: 'embedding failed', detail: emb.body };\n  const r = await http({\n    method: 'POST',\n    url: `${SB_URL}/rest/v1/rpc/search_wines`,\n    headers: sbHeaders,\n    body: { p_tenant_id: tenantId, p_query_embedding: vector, p_match_count: 3 },\n  });\n  return r.ok ? { wines: r.body } : { error: 'search failed', detail: r.body };\n}\n\nasync function check_stock({ shopify_variant_id }) {\n  // Backed by the ingested catalogue (Supabase), not Shopify — search_wines\n  // already only surfaces inventory_available wines, so this is a soft check.\n  const r = await http({\n    url:\n      `${SB_URL}/rest/v1/wines?tenant_id=eq.${encodeURIComponent(tenantId)}` +\n      `&shopify_variant_id=eq.${encodeURIComponent(shopify_variant_id)}` +\n      `&select=title,vintage,inventory_available`,\n    headers: sbHeaders,\n  });\n  const row = Array.isArray(r.body) && r.body[0];\n  if (!row)\n    return { available: true, note: 'not in catalogue cache; checkout will confirm' };\n  return {\n    available: !!row.inventory_available,\n    wine: `${row.title || ''} ${row.vintage || ''}`.trim(),\n  };\n}\n\n// Shared: read current lines, persist a lines map, return permalink.\n// `lines` is { variantId: qty }. Empty map => cleared cart (no permalink).\nasync function readCartLines() {\n  const r = await http({\n    url:\n      `${SB_URL}/rest/v1/customer_carts?tenant_id=eq.${encodeURIComponent(tenantId)}` +\n      `&contact_id=eq.${encodeURIComponent(contactId)}&select=cart_id`,\n    headers: sbHeaders,\n  });\n  const prev = (Array.isArray(r.body) && r.body[0] && r.body[0].cart_id) || '';\n  const lines = {};\n  for (const part of String(prev).split(',')) {\n    const m = part.match(/^(\\d+):(\\d+)$/);\n    if (m) lines[m[1]] = (lines[m[1]] || 0) + parseInt(m[2], 10);\n  }\n  return lines;\n}\n\nasync function persistCart(lines) {\n  const entries = Object.keys(lines).filter((k) => lines[k] > 0);\n  const spec = entries.map((k) => `${k}:${lines[k]}`).join(',');\n  const checkout_url = spec ? `https://${SHOP}/cart/${spec}?storefront=true` : null;\n  await http({\n    method: 'POST',\n    url: `${SB_URL}/rest/v1/customer_carts?on_conflict=tenant_id,contact_id`,\n    headers: { ...sbHeaders, Prefer: 'resolution=merge-duplicates,return=minimal' },\n    body: {\n      tenant_id: tenantId,\n      contact_id: contactId,\n      cart_id: spec,\n      checkout_url,\n      updated_at: new Date().toISOString(),\n    },\n  });\n  return {\n    cart: entries.map((k) => ({ variant_id: k, quantity: lines[k] })),\n    checkout_url, // permalink (backstop)\n  };\n}\n\n// Commit a lines map: always persist + build the permalink backstop, then\n// try the \"Shopify Cart\" sub-workflow for a real Draft Order. Prefer the\n// draft invoice_url; fall back to the permalink if the sub-workflow is\n// unset/fails so cart behaviour never regresses.\n// Customer-facing checkout path = Shopify cart PERMALINK (operator\n// decision 2026-05-18). The customer opens it and the items load into\n// their real on-site cart (visible on that page). No draft order in the\n// conversational flow; shopify-cart.json stays dormant for possible\n// future estate-side records. Full add/remove/replace/clear control is\n// expressed through the regenerated permalink in persistCart.\nasync function commitCart(lines) {\n  const base = await persistCart(lines); // writes spec + permalink (empty clears)\n  const entries = Object.keys(lines).filter((k) => lines[k] > 0);\n  if (!entries.length) return { cleared: true, checkout_url: null, via: 'cleared' };\n  return { cart: base.cart, checkout_url: base.checkout_url, via: 'permalink' };\n}\n\nasync function add_to_cart({ shopify_variant_id, quantity }) {\n  const qty = Math.max(1, Math.min(24, parseInt(quantity, 10) || 1));\n  const vid = String(shopify_variant_id).replace(/[^0-9]/g, '');\n  if (!vid) return { error: 'invalid variant id' };\n  const lines = await readCartLines();\n  lines[vid] = (lines[vid] || 0) + qty;\n  return commitCart(lines);\n}\n\n// Full control: replace the ENTIRE cart with exactly `items`\n// (add/remove/replace/quantity-change all in one). items: [] clears it.\nasync function set_cart({ items }) {\n  const lines = {};\n  for (const it of items || []) {\n    const vid = String(it.shopify_variant_id || '').replace(/[^0-9]/g, '');\n    const q = Math.max(0, Math.min(24, parseInt(it.quantity, 10) || 0));\n    if (vid && q > 0) lines[vid] = q;\n  }\n  return commitCart(lines);\n}\n\nasync function capture_return_channels(args) {\n  const customFields = [];\n  if (args.whatsapp) customFields.push({ id: FIELD_ID.whatsapp_preferred, value: 'Yes' });\n  customFields.push({\n    id: FIELD_ID.return_channels_captured_at,\n    value: new Date().toISOString().slice(0, 10),\n  });\n  await http({\n    method: 'PUT',\n    url: `https://services.leadconnectorhq.com/contacts/${contactId}`,\n    headers: { Authorization: `Bearer ${GHL_TOKEN}`, Version: '2021-07-28' },\n    body: {\n      firstName: args.first_name || undefined,\n      lastName: args.last_name || undefined,\n      phone: args.phone || args.whatsapp || undefined,\n      email: args.email || undefined,\n      customFields,\n    },\n  });\n  return { captured: true };\n}\n\nconst HANDLERS = { search_wines, check_stock, add_to_cart, set_cart, capture_return_channels };\n\n// ---- tool schemas (kept in sync with tools/account-tools.json) ------------\nconst tools = [\n  {\n    name: 'search_wines',\n    description:\n      'Search the wine catalogue by intent. Returns matches incl. shopify_variant_id for check_stock/add_to_cart.',\n    input_schema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },\n  },\n  {\n    name: 'check_stock',\n    description: 'Check live stock for a wine VARIANT before adding to cart.',\n    input_schema: {\n      type: 'object',\n      properties: { shopify_variant_id: { type: 'string' } },\n      required: ['shopify_variant_id'],\n    },\n  },\n  {\n    name: 'add_to_cart',\n    description:\n      \"Incrementally add a wine variant to the customer's prepared cart link; returns a checkout_url that loads the cart when opened. Use for 'add another', 'also add'. Only after explicit confirmation.\",\n    input_schema: {\n      type: 'object',\n      properties: {\n        shopify_variant_id: { type: 'string' },\n        quantity: { type: 'integer', minimum: 1, maximum: 24 },\n      },\n      required: ['shopify_variant_id', 'quantity'],\n    },\n  },\n  {\n    name: 'set_cart',\n    description:\n      \"Replace the customer's ENTIRE prepared cart with exactly these items in one call. Use for remove/replace/clear/change-quantity ('remove everything and add 2 Chenin', 'make it 3 of the Shiraz only', 'clear the cart'). Pass items: [] to empty it. Returns the updated checkout_url.\",\n    input_schema: {\n      type: 'object',\n      properties: {\n        items: {\n          type: 'array',\n          items: {\n            type: 'object',\n            properties: {\n              shopify_variant_id: { type: 'string' },\n              quantity: { type: 'integer', minimum: 1, maximum: 24 },\n            },\n            required: ['shopify_variant_id', 'quantity'],\n          },\n        },\n      },\n      required: ['items'],\n    },\n  },\n  {\n    name: 'capture_return_channels',\n    description:\n      'Backup capture for contact info the customer shared and your reply acknowledges. Never solicit.',\n    input_schema: {\n      type: 'object',\n      properties: {\n        first_name: { type: 'string' },\n        last_name: { type: 'string' },\n        phone: { type: 'string' },\n        whatsapp: { type: 'string' },\n        email: { type: 'string' },\n      },\n    },\n  },\n];\n\n// ---- the loop -------------------------------------------------------------\n\nfunction fallback(text, diag) {\n  return [\n    {\n      json: {\n        model: MODEL,\n        stop_reason: 'end_turn',\n        content: [{ type: 'text', text }],\n        reply_text: text,\n        usage: {},\n        _agent: { error: true, diag: diag || null },\n      },\n    },\n  ];\n}\n\nconst ENV = {\n  has_httpRequest: !!(helpers && helpers.httpRequest),\n  has_anthropic_key: !!ANTHROPIC,\n  has_sb_url: !!SB_URL,\n  has_voyage: !!VOYAGE,\n  has_shop_domain: !!SHOP,\n  bm_keys: bm ? Object.keys(bm) : null,\n  messages_len: Array.isArray(bm && bm.messages) ? bm.messages.length : 'n/a',\n};\n\nif (!helpers || !helpers.httpRequest) {\n  return fallback(\"Sorry — I'm having a moment. A human will be with you shortly.\", {\n    stage: 'no_httpRequest',\n    env: ENV,\n  });\n}\n\nconst sleep = (ms) => new Promise((res) => setTimeout(res, ms));\n\n// Anthropic returns 429 (rate) / 529 (overloaded) / 5xx under load —\n// all transient. Retry with backoff before letting the loop fall back,\n// so a momentary capacity blip never surfaces as a failed turn.\nasync function callClaude(withTools) {\n  const body = withTools\n    ? { model: MODEL, max_tokens: 1024, system, messages, tools }\n    : { model: MODEL, max_tokens: 1024, system, messages };\n  const delays = [800, 1800, 4000, 8000];\n  let r;\n  for (let attempt = 0; attempt <= delays.length; attempt++) {\n    r = await http({\n      method: 'POST',\n      url: 'https://api.anthropic.com/v1/messages',\n      headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01' },\n      body,\n    });\n    const b = r.body || {};\n    const transient =\n      r.status === 429 ||\n      r.status === 529 ||\n      r.status >= 500 ||\n      (b.type === 'error' &&\n        b.error &&\n        (b.error.type === 'overloaded_error' ||\n          b.error.type === 'api_error' ||\n          b.error.type === 'rate_limit_error'));\n    if (!transient || attempt === delays.length) return r;\n    await sleep(delays[attempt]);\n  }\n  return r;\n}\n\nlet messages = Array.isArray(bm.messages) ? bm.messages.slice() : [];\nconst toolLog = [];\n\ntry {\n  for (let iter = 0; iter < MAX_ITERS; iter++) {\n    const r = await callClaude(true);\n    const resp = r.body;\n\n    if (!r.ok || !resp || resp.type === 'error' || !resp.content) {\n      return fallback(\"Sorry — I'm having a moment. A human will be with you shortly.\", {\n        stage: 'anthropic_error',\n        status: r.status,\n        anthropic_response: resp,\n        env: ENV,\n      });\n    }\n\n    if (resp.stop_reason !== 'tool_use') {\n      resp._agent = { tool_log: toolLog, iterations: iter + 1 };\n      resp.reply_text =\n        (Array.isArray(resp.content) && (resp.content.find((b) => b.type === 'text') || {}).text) ||\n        '';\n      return [{ json: resp }];\n    }\n\n    messages.push({ role: 'assistant', content: resp.content });\n\n    const results = [];\n    for (const block of resp.content) {\n      if (block.type !== 'tool_use') continue;\n      let result;\n      try {\n        const fn = HANDLERS[block.name];\n        result = fn ? await fn(block.input || {}) : { error: `unknown tool ${block.name}` };\n      } catch (e) {\n        result = { error: String((e && (e.message || e)) || e) };\n      }\n      toolLog.push({ name: block.name, input: block.input, result });\n      results.push({\n        type: 'tool_result',\n        tool_use_id: block.id,\n        content: JSON.stringify(result),\n      });\n    }\n    messages.push({ role: 'user', content: results });\n  }\n\n  const fr = await callClaude(false);\n  if (fr.ok && fr.body && fr.body.content) {\n    const finalResp = fr.body;\n    finalResp._agent = { tool_log: toolLog, iterations: MAX_ITERS, capped: true };\n    finalResp.reply_text =\n      (Array.isArray(finalResp.content) &&\n        (finalResp.content.find((b) => b.type === 'text') || {}).text) ||\n      '';\n    return [{ json: finalResp }];\n  }\n  return fallback('Let me get a colleague to help with that — one moment.', {\n    stage: 'iteration_cap',\n    env: ENV,\n  });\n} catch (e) {\n  return fallback(\"Sorry — I'm having a moment. A human will be with you shortly.\", {\n    stage: 'exception',\n    error: String((e && (e.stack || e.message)) || e),\n    env: ENV,\n  });\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1568,
-        192
+        4384,
+        1152
       ],
-      "id": "3023d44b-48e4-4866-8bb8-1a2f13ad5fc4",
+      "id": "26ee2c06-0104-40bb-8cee-0309cc51b270",
       "name": "Call Claude",
-      "executeOnce": true
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -574,13 +575,13 @@
         },
         "options": {}
       },
-      "id": "91545d20-f0fe-4e03-ad1e-85413a114fd6",
+      "id": "526e6590-c0fe-47ad-983a-a82f6f16be44",
       "name": "Get Cart Row",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1648,
-        512
+        4464,
+        1472
       ],
       "alwaysOutputData": true,
       "executeOnce": true,
@@ -590,13 +591,13 @@
       "parameters": {
         "jsCode": "const b = $('Webhook1').first().json.body || {};\nconst lines = (Array.isArray(b.lines) ? b.lines : [])\n  .map((l) => ({\n    variant_id: parseInt(String(l.variant_id != null ? l.variant_id : l.shopify_variant_id).replace(/[^0-9]/g, ''), 10),\n    quantity: Math.max(1, Math.min(24, parseInt(l.quantity, 10) || 1)),\n  }))\n  .filter((l) => l.variant_id);\nconst rows = $('Get Cart Row').all().map((i) => i.json).filter((o) => o && Object.keys(o).length > 0);\nconst draftId = (rows[0] && rows[0].draft_order_id) || null;\nconst SHOP = $vars.SHOPIFY_STORE_DOMAIN;\nconst V = '2024-10';\nconst body = { draft_order: { line_items: lines } };\nlet method = 'POST';\nlet url = `https://${SHOP}/admin/api/${V}/draft_orders.json`;\nif (draftId) {\n  method = 'PUT';\n  url = `https://${SHOP}/admin/api/${V}/draft_orders/${draftId}.json`;\n  body.draft_order.id = parseInt(draftId, 10);\n}\nif (!lines.length) {\n  return [{ json: { skip: true, tenant_id: b.tenant_id, contact_id: b.contact_id } }];\n}\nreturn [{ json: { skip: false, method, url, body, tenant_id: b.tenant_id, contact_id: b.contact_id } }];"
       },
-      "id": "230d2b8f-8f70-486a-a2b3-82b3020ce111",
+      "id": "34d88dcc-1bde-497c-8a33-8d26cb0ac77a",
       "name": "Plan",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1872,
-        512
+        4688,
+        1472
       ],
       "executeOnce": true
     },
@@ -617,13 +618,13 @@
           }
         }
       },
-      "id": "a81eaac1-bcbd-47e4-938d-a7f8874678a7",
+      "id": "5bd648f2-c0b5-49d1-809d-4aa8238ce6eb",
       "name": "Shopify Draft",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        2080,
-        512
+        4896,
+        1472
       ],
       "executeOnce": true,
       "credentials": {
@@ -638,13 +639,13 @@
       "parameters": {
         "jsCode": "const plan = $('Plan').first().json;\nif (plan.skip) {\n  return [{ json: { ok: true, cleared: true, invoice_url: null, draft_order_id: null, tenant_id: plan.tenant_id, contact_id: plan.contact_id } }];\n}\nconst resp = $('Shopify Draft').first().json || {};\nconst draft = resp.draft_order || (resp.body && resp.body.draft_order);\nif (!draft || !draft.invoice_url) {\n  return [{ json: { ok: false, error: 'draft order failed', detail: resp, tenant_id: plan.tenant_id, contact_id: plan.contact_id } }];\n}\nreturn [{ json: { ok: true, invoice_url: draft.invoice_url, draft_order_id: String(draft.id), tenant_id: plan.tenant_id, contact_id: plan.contact_id } }];"
       },
-      "id": "46437873-0a3e-4008-88e0-4d51dfd03e3a",
+      "id": "c02557e2-821d-4932-861c-ac03a777a6ef",
       "name": "Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2304,
-        512
+        5120,
+        1472
       ],
       "executeOnce": true
     },
@@ -678,13 +679,13 @@
         "jsonBody": "={{ JSON.stringify({ tenant_id: $json.tenant_id, contact_id: $json.contact_id, draft_order_id: $json.draft_order_id, checkout_url: $json.invoice_url, updated_at: new Date().toISOString() }) }}",
         "options": {}
       },
-      "id": "1b7059c9-af19-447f-a743-50fbf1b36dcb",
+      "id": "9ab0e6cb-be47-470b-bf57-c82233d9c794",
       "name": "Persist Cart",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        2528,
-        512
+        5344,
+        1472
       ],
       "executeOnce": true,
       "onError": "continueRegularOutput"
@@ -696,13 +697,13 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "012daa03-3877-4680-bee2-18bbb1550bae",
+      "id": "efb6e12f-04bc-4618-951a-478869ad3e28",
       "name": "Webhook1",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        1424,
-        512
+        4240,
+        1472
       ],
       "webhookId": "shopify-cart"
     },
@@ -712,13 +713,13 @@
         "responseBody": "={{ JSON.stringify($('Result').first().json) }}",
         "options": {}
       },
-      "id": "5a9e2759-440a-4fba-9280-65449175bb34",
+      "id": "c2b31394-c13f-4650-8f24-bbab345bcbf1",
       "name": "Respond1",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2752,
-        512
+        5568,
+        1472
       ]
     },
     {
@@ -747,13 +748,13 @@
         "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 200,\n  \"system\": \"Extract contact details the user shared in their latest message. Return ONLY a JSON object with any of these keys that are present: first_name, last_name, phone, whatsapp, email. Phone/whatsapp in E.164 if you can infer the country (SA numbers like 0821234567 become +27821234567). If none are present return {}. Never guess or infer values that were not stated.\",\n  \"messages\": [{ \"role\": \"user\", \"content\": {{ JSON.stringify($('Extract').first().json.message) }} }]\n}",
         "options": {}
       },
-      "id": "30000000-0000-0000-0000-000000000001",
+      "id": "d6dda5ec-d871-4234-9cf0-29937d19b3a3",
       "name": "Extract Entities",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        0,
-        420
+        2816,
+        1392
       ],
       "executeOnce": true,
       "alwaysOutputData": true,
@@ -761,16 +762,15 @@
     },
     {
       "parameters": {
-        "language": "javaScript",
         "jsCode": "const raw = $json && $json.content && $json.content[0] && $json.content[0].text || '{}';\nlet p = {};\ntry { const m = String(raw).match(/\\{[\\s\\S]*\\}/); p = m ? JSON.parse(m[0]) : {}; } catch (_e) { p = {}; }\nconst keys = ['first_name','last_name','phone','whatsapp','email'];\nconst clean = {};\nfor (const k of keys) { if (p[k] && String(p[k]).trim()) clean[k] = String(p[k]).trim(); }\nclean._has_any = Object.keys(clean).length > 0;\nreturn [{ json: clean }];"
       },
-      "id": "30000000-0000-0000-0000-000000000002",
+      "id": "ef919f55-d7d9-4a58-ac17-4d943a2bcc99",
       "name": "Parse Entities",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
-        420
+        3040,
+        1392
       ],
       "executeOnce": true
     },
@@ -780,7 +780,8 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "loose"
+            "typeValidation": "loose",
+            "version": 1
           },
           "conditions": [
             {
@@ -797,13 +798,13 @@
         },
         "options": {}
       },
-      "id": "30000000-0000-0000-0000-000000000003",
+      "id": "dd253797-00f9-4bbb-9380-aa7428f146d3",
       "name": "Has Entities?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        440,
-        420
+        3264,
+        1392
       ]
     },
     {
@@ -832,13 +833,13 @@
         "jsonBody": "={{ JSON.stringify(Object.assign({}, $json.first_name?{firstName:$json.first_name}:{}, $json.last_name?{lastName:$json.last_name}:{}, ($json.phone||$json.whatsapp)?{phone:$json.phone||$json.whatsapp}:{}, $json.email?{email:$json.email}:{}, { customFields: [].concat($json.whatsapp?[{id:'cZnCWMR3VsZW0YXXcxGL',value:'Yes'}]:[], [{id:'kE3148Mfthnf3UHEPb4N',value:new Date().toISOString().slice(0,10)}]) })) }}",
         "options": {}
       },
-      "id": "30000000-0000-0000-0000-000000000004",
+      "id": "f672350a-a77a-41bb-8ced-79c0a6ff2640",
       "name": "Update GHL Contact (extraction)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        660,
-        420
+        3488,
+        1392
       ],
       "executeOnce": true,
       "onError": "continueRegularOutput"
@@ -1107,13 +1108,7 @@
             "type": "main",
             "index": 0
           }
-        ],
-        []
-      ]
-    },
-    "Update GHL Contact (extraction)": {
-      "main": [
-        []
+        ]
       ]
     }
   },
@@ -1122,7 +1117,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "fac35f13-0235-4f2e-be7a-759304e3d077",
+  "versionId": "499e0f20-009b-48f6-9538-331ea335048b",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "f8c3164f3a6b8410cf5398b759de648dc6162e70cdcc88086fee208dbf4b70b9"
