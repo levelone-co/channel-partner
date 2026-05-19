@@ -137,28 +137,58 @@ picks it up next turn exactly as the n8n path does.
 ## 4. Voice widget path (primary VF tester)
 
 Because this is a **Voice** assistant, the widget renders as a voice/call
-bubble — this is the main way to actually evaluate VF voice. Project must be
-**Published → Production** or the bubble never appears. The current live
-snippet (in Shopify `layout/theme.liquid`, before `</body>`, with the GHL
-loader commented out) is the voice form — keep the `voice:` block and add
-`versionID`:
+bubble. Project must be **Published → Production** or the bubble never
+appears.
+
+**Cost discipline (voice ≈ $0.50/convo — mostly TTS/STT): never debug logic
+on voice.** Test order: (1) Voiceflow Run/Test panel (text, ~cents) for
+grounding/cart/brevity; (2) text harness `eval/runner/run_eval.py` via
+`vf-adapter` for the functional-parity gates; (3) live voice widget
+`?vf=1` only for the final qualitative voice-readiness pass.
+
+Storefront gate — one widget at a time, GHL untouched for real visitors.
+In `layout/theme.liquid` before `</body>`: Voiceflow only when `?vf=1`
+(sticky for the session; `?vf=0` resets), else the GHL widget. No theme
+duplication.
 
 ```html
-<script type="text/javascript">
-  (function(d, t) {
-    var v = d.createElement(t), s = d.getElementsByTagName(t)[0];
-    v.onload = function() {
-      window.voiceflow.chat.load({
-        verify: { projectID: '69fb1aaa5cd3c58960585794' },
-        url: 'https://general-runtime.voiceflow.com',
-        versionID: 'production',
-        voice: { url: 'https://runtime-api.voiceflow.com' }
-      });
-    };
-    v.src = 'https://cdn.voiceflow.com/widget-next/bundle.mjs';
-    v.type = 'text/javascript'; s.parentNode.insertBefore(v, s);
-  })(document, 'script');
+{% raw %}
+{% if settings.quick_add or settings.mobile_quick_add %}
+  {% render 'quick-add-modal' %}
+{% endif %}
+<script>
+  (function () {
+    var p = new URLSearchParams(window.location.search), vf;
+    try {
+      if (p.get('vf') === '1') sessionStorage.setItem('useVF','1');
+      if (p.get('vf') === '0') sessionStorage.removeItem('useVF');
+      vf = sessionStorage.getItem('useVF') === '1';
+    } catch (e) { vf = p.get('vf') === '1'; }
+    if (vf) {
+      (function (d, t) {
+        var v = d.createElement(t), s = d.getElementsByTagName(t)[0];
+        v.onload = function () {
+          window.voiceflow.chat.load({
+            verify: { projectID: '69fb1aaa5cd3c58960585794' },
+            url: 'https://general-runtime.voiceflow.com',
+            versionID: 'production',
+            voice: { url: 'https://runtime-api.voiceflow.com' }
+          });
+        };
+        v.src = 'https://cdn.voiceflow.com/widget-next/bundle.mjs';
+        v.type = 'text/javascript';
+        s.parentNode.insertBefore(v, s);
+      })(document, 'script');
+    } else {
+      var g = document.createElement('script');
+      g.src = 'https://widgets.leadconnectorhq.com/loader.js';
+      g.setAttribute('data-resources-url', 'https://widgets.leadconnectorhq.com/chat-widget/loader.js');
+      g.setAttribute('data-widget-id', '6a072ec62a4bbd9f1746f45d');
+      document.body.appendChild(g);
+    }
+  })();
 </script>
+{% endraw %}
 ```
 
 Logging still happens inside the same `bootstrap`/`finalize` Functions, so
