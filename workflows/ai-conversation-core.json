@@ -14,7 +14,7 @@
       "typeVersion": 2.1,
       "position": [
         -448,
-        208
+        96
       ],
       "webhookId": "ai-conversation-core-step3-draft"
     },
@@ -62,7 +62,7 @@
       "typeVersion": 3.4,
       "position": [
         -224,
-        208
+        96
       ]
     },
     {
@@ -112,7 +112,7 @@
       "typeVersion": 4.4,
       "position": [
         0,
-        208
+        96
       ]
     },
     {
@@ -160,7 +160,7 @@
       "typeVersion": 4.4,
       "position": [
         224,
-        208
+        192
       ]
     },
     {
@@ -215,8 +215,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        432,
-        208
+        448,
+        192
       ],
       "alwaysOutputData": true,
       "executeOnce": true
@@ -248,8 +248,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        656,
-        208
+        672,
+        192
       ],
       "executeOnce": true
     },
@@ -284,8 +284,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        880,
-        208
+        896,
+        192
       ],
       "alwaysOutputData": true,
       "executeOnce": true
@@ -299,8 +299,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1104,
-        208
+        1120,
+        192
       ],
       "executeOnce": true
     },
@@ -339,47 +339,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1312,
-        208
+        1344,
+        192
       ],
       "executeOnce": true
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.anthropic.com/v1/messages",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-api-key",
-              "value": "={{ $vars.ANTHROPIC_API_KEY }}"
-            },
-            {
-              "name": "anthropic-version",
-              "value": "2023-06-01"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 1024,\n  \"system\": {{ JSON.stringify($('Build Messages').first().json.systemBlocks) }},\n  \"messages\": {{ JSON.stringify($('Build Messages').first().json.messages) }},\n  \"tools\": [\n    {\n      \"name\": \"capture_return_channels\",\n      \"description\": \"Acknowledge contact info the customer just shared. The always-on extraction pipeline captures volunteered info silently — call this tool only when your reply itself refers to the capture (e.g. 'Got it, Joe — I'll let you know when the next vintage drops'). Per the 15-conversational-data-capture-sale prompt, you may proactively offer to follow up via WhatsApp/email when there's a clear reason; this tool is the way to confirm what they shared in response.\",\n      \"input_schema\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"first_name\": {\"type\": \"string\"},\n          \"last_name\": {\"type\": \"string\"},\n          \"phone\": {\"type\": \"string\", \"description\": \"E.164 format if possible (e.g. +27821234567)\"},\n          \"whatsapp\": {\"type\": \"string\", \"description\": \"WhatsApp number if different from primary phone\"},\n          \"email\": {\"type\": \"string\"}\n        }\n      }\n    }\n  ]\n}",
-        "options": {}
-      },
-      "id": "a5f2cd7a-68bd-4f3c-a4bb-ec17b139373b",
-      "name": "Call Claude",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        1536,
-        208
-      ],
-      "executeOnce": true,
-      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -416,10 +379,11 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1760,
-        208
+        1792,
+        192
       ],
-      "executeOnce": true
+      "executeOnce": true,
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -432,9 +396,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1984,
-        208
-      ]
+        2240,
+        192
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -469,8 +434,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1760,
-        400
+        2464,
+        192
       ],
       "id": "7eabeae1-4573-4c9d-8ca9-67675f1eb85a",
       "name": "Log Error",
@@ -487,8 +452,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1984,
-        400
+        2688,
+        192
       ],
       "id": "0331d8e3-f140-4706-b58c-7f9f4671c11b",
       "name": "Respond Fallback"
@@ -516,7 +481,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        0,
+        224,
         0
       ],
       "alwaysOutputData": true,
@@ -554,131 +519,24 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1872,
-        208
+        2016,
+        192
       ],
       "executeOnce": true,
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://api.anthropic.com/v1/messages",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-api-key",
-              "value": "={{ $vars.ANTHROPIC_API_KEY }}"
-            },
-            {
-              "name": "anthropic-version",
-              "value": "2023-06-01"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 200,\n  \"system\": \"Extract contact details the user shared in their latest message. Return ONLY a JSON object with any of these keys that are present: first_name, last_name, phone, whatsapp, email. Phone/whatsapp in E.164 if you can infer the country (SA numbers like 0821234567 become +27821234567). If none are present return {}. Never guess or infer values that were not stated.\",\n  \"messages\": [{ \"role\": \"user\", \"content\": {{ JSON.stringify($('Extract').first().json.message) }} }]\n}",
-        "options": {}
+        "jsCode": "/**\n * Sarah Agent Loop — n8n Code node body.\n *\n * Replaces the old \"Call Claude\" HTTP Request node. KEEP THE NODE NAMED\n * \"Call Claude\" so downstream nodes keep resolving\n * `$('Call Claude').first().json...` — this returns the FINAL Anthropic\n * response object (plus reply_text + _agent), same shape the HTTP node had.\n *\n * Node settings: Language = JavaScript, Mode = \"Run Once for All Items\".\n *\n * HTTP via this.helpers.httpRequest — the n8n external JS task runner does\n * NOT provide a global `fetch`, but it DOES bridge this.helpers.httpRequest\n * over RPC. Every call is wrapped so the node never throws; on any failure\n * it returns a graceful fallback with the cause in _agent.diag.\n *\n * n8n Variables required:\n *   ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,\n *   VOYAGE_API_KEY, SHOPIFY_STORE_DOMAIN, SHOPIFY_STOREFRONT_TOKEN,\n *   GHL_API_TOKEN\n */\n\nconst bm = $('Build Messages').first().json;\nconst system = bm.systemBlocks;\nconst tenantId = bm.tenant_id;\nconst contactId = bm.contact_id;\n\nconst ANTHROPIC = $vars.ANTHROPIC_API_KEY;\nconst SB_URL = $vars.SUPABASE_URL;\nconst SB_KEY = $vars.SUPABASE_SERVICE_ROLE_KEY;\nconst VOYAGE = $vars.VOYAGE_API_KEY;\nconst SHOP = $vars.SHOPIFY_STORE_DOMAIN;\nconst SF_TOKEN = $vars.SHOPIFY_STOREFRONT_TOKEN;\nconst GHL_TOKEN = $vars.GHL_API_TOKEN;\n\nconst SHOPIFY_API_VERSION = '2024-10';\nconst MODEL = 'claude-haiku-4-5-20251001';\nconst MAX_ITERS = 5;\n\nconst FIELD_ID = {\n  whatsapp_preferred: 'cZnCWMR3VsZW0YXXcxGL',\n  return_channels_captured_at: 'kE3148Mfthnf3UHEPb4N',\n};\n\nconst helpers = this.helpers;\n\n// Single HTTP primitive. Never throws. Returns { ok, status, body }.\nasync function http({ method = 'GET', url, headers = {}, body }) {\n  try {\n    const res = await helpers.httpRequest({\n      method,\n      url,\n      headers,\n      body: body !== undefined ? body : undefined,\n      json: true, // serialise request object + parse response as JSON\n      returnFullResponse: true,\n      ignoreHttpStatusErrors: true,\n    });\n    return { ok: res.statusCode < 400, status: res.statusCode, body: res.body };\n  } catch (e) {\n    return { ok: false, status: 0, body: { __error: String((e && (e.message || e)) || e) } };\n  }\n}\n\nconst sbHeaders = {\n  apikey: SB_KEY,\n  Authorization: `Bearer ${SB_KEY}`,\n};\n\nconst storefront = (query, variables) =>\n  http({\n    method: 'POST',\n    url: `https://${SHOP}/api/${SHOPIFY_API_VERSION}/graphql.json`,\n    headers: { 'X-Shopify-Storefront-Access-Token': SF_TOKEN },\n    body: { query, variables },\n  });\n\nconst variantGid = (id) =>\n  String(id).startsWith('gid://') ? String(id) : `gid://shopify/ProductVariant/${id}`;\n\n// ---- tool implementations -------------------------------------------------\n\nasync function search_wines({ query }) {\n  const emb = await http({\n    method: 'POST',\n    url: 'https://api.voyageai.com/v1/embeddings',\n    headers: { Authorization: `Bearer ${VOYAGE}` },\n    body: { model: 'voyage-4-lite', input: [query], input_type: 'query', output_dimension: 512 },\n  });\n  const vector = emb.body && emb.body.data && emb.body.data[0] && emb.body.data[0].embedding;\n  if (!vector) return { error: 'embedding failed', detail: emb.body };\n  const r = await http({\n    method: 'POST',\n    url: `${SB_URL}/rest/v1/rpc/search_wines`,\n    headers: sbHeaders,\n    body: { p_tenant_id: tenantId, p_query_embedding: vector, p_match_count: 3 },\n  });\n  return r.ok ? { wines: r.body } : { error: 'search failed', detail: r.body };\n}\n\nasync function check_stock({ shopify_variant_id }) {\n  const d = await storefront(\n    `query($id: ID!) { node(id: $id) { ... on ProductVariant {\n       availableForSale quantityAvailable title product { title } } } }`,\n    { id: variantGid(shopify_variant_id) }\n  );\n  const v = d.body && d.body.data && d.body.data.node;\n  if (!v) return { error: 'variant not found', detail: d.body };\n  return {\n    available: v.availableForSale,\n    quantity_available: v.quantityAvailable,\n    wine: `${(v.product && v.product.title) || ''} ${v.title || ''}`.trim(),\n  };\n}\n\nasync function add_to_cart({ shopify_variant_id, quantity }) {\n  const qty = Math.max(1, Math.min(24, parseInt(quantity, 10) || 1));\n  const line = { merchandiseId: variantGid(shopify_variant_id), quantity: qty };\n\n  const existing = await http({\n    url:\n      `${SB_URL}/rest/v1/customer_carts?tenant_id=eq.${encodeURIComponent(tenantId)}` +\n      `&contact_id=eq.${encodeURIComponent(contactId)}&select=cart_id,checkout_url`,\n    headers: sbHeaders,\n  });\n  const rows = Array.isArray(existing.body) ? existing.body : [];\n  const haveCart = rows.length && rows[0].cart_id;\n\n  let cart, errs;\n  if (haveCart) {\n    const d = await storefront(\n      `mutation($cartId: ID!, $lines: [CartLineInput!]!) {\n         cartLinesAdd(cartId: $cartId, lines: $lines) {\n           cart { id checkoutUrl } userErrors { message } } }`,\n      { cartId: rows[0].cart_id, lines: [line] }\n    );\n    cart = d.body && d.body.data && d.body.data.cartLinesAdd && d.body.data.cartLinesAdd.cart;\n    errs = d.body && d.body.data && d.body.data.cartLinesAdd && d.body.data.cartLinesAdd.userErrors;\n  }\n  if (!cart) {\n    const d = await storefront(\n      `mutation($lines: [CartLineInput!]!) {\n         cartCreate(input: { lines: $lines }) {\n           cart { id checkoutUrl } userErrors { message } } }`,\n      { lines: [line] }\n    );\n    cart = d.body && d.body.data && d.body.data.cartCreate && d.body.data.cartCreate.cart;\n    errs = d.body && d.body.data && d.body.data.cartCreate && d.body.data.cartCreate.userErrors;\n  }\n  if (!cart) return { error: 'cart operation failed', userErrors: errs || null };\n\n  await http({\n    method: 'POST',\n    url: `${SB_URL}/rest/v1/customer_carts?on_conflict=tenant_id,contact_id`,\n    headers: { ...sbHeaders, Prefer: 'resolution=merge-duplicates,return=minimal' },\n    body: {\n      tenant_id: tenantId,\n      contact_id: contactId,\n      cart_id: cart.id,\n      checkout_url: cart.checkoutUrl,\n      updated_at: new Date().toISOString(),\n    },\n  });\n\n  return { added: { quantity: qty }, checkout_url: cart.checkoutUrl };\n}\n\nasync function capture_return_channels(args) {\n  const customFields = [];\n  if (args.whatsapp) customFields.push({ id: FIELD_ID.whatsapp_preferred, value: 'Yes' });\n  customFields.push({\n    id: FIELD_ID.return_channels_captured_at,\n    value: new Date().toISOString().slice(0, 10),\n  });\n  await http({\n    method: 'PUT',\n    url: `https://services.leadconnectorhq.com/contacts/${contactId}`,\n    headers: { Authorization: `Bearer ${GHL_TOKEN}`, Version: '2021-07-28' },\n    body: {\n      firstName: args.first_name || undefined,\n      lastName: args.last_name || undefined,\n      phone: args.phone || args.whatsapp || undefined,\n      email: args.email || undefined,\n      customFields,\n    },\n  });\n  return { captured: true };\n}\n\nconst HANDLERS = { search_wines, check_stock, add_to_cart, capture_return_channels };\n\n// ---- tool schemas (kept in sync with tools/account-tools.json) ------------\nconst tools = [\n  {\n    name: 'search_wines',\n    description:\n      'Search the wine catalogue by intent. Returns matches incl. shopify_variant_id for check_stock/add_to_cart.',\n    input_schema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },\n  },\n  {\n    name: 'check_stock',\n    description: 'Check live stock for a wine VARIANT before adding to cart.',\n    input_schema: {\n      type: 'object',\n      properties: { shopify_variant_id: { type: 'string' } },\n      required: ['shopify_variant_id'],\n    },\n  },\n  {\n    name: 'add_to_cart',\n    description:\n      \"Add a wine variant to the customer's cart; returns a checkout_url. Only after explicit confirmation. Calling this is the ONLY way an item is actually in the cart.\",\n    input_schema: {\n      type: 'object',\n      properties: {\n        shopify_variant_id: { type: 'string' },\n        quantity: { type: 'integer', minimum: 1, maximum: 24 },\n      },\n      required: ['shopify_variant_id', 'quantity'],\n    },\n  },\n  {\n    name: 'capture_return_channels',\n    description:\n      'Backup capture for contact info the customer shared and your reply acknowledges. Never solicit.',\n    input_schema: {\n      type: 'object',\n      properties: {\n        first_name: { type: 'string' },\n        last_name: { type: 'string' },\n        phone: { type: 'string' },\n        whatsapp: { type: 'string' },\n        email: { type: 'string' },\n      },\n    },\n  },\n];\n\n// ---- the loop -------------------------------------------------------------\n\nfunction fallback(text, diag) {\n  return [\n    {\n      json: {\n        model: MODEL,\n        stop_reason: 'end_turn',\n        content: [{ type: 'text', text }],\n        reply_text: text,\n        usage: {},\n        _agent: { error: true, diag: diag || null },\n      },\n    },\n  ];\n}\n\nconst ENV = {\n  has_httpRequest: !!(helpers && helpers.httpRequest),\n  has_anthropic_key: !!ANTHROPIC,\n  has_sb_url: !!SB_URL,\n  has_voyage: !!VOYAGE,\n  has_sf_token: !!SF_TOKEN,\n  bm_keys: bm ? Object.keys(bm) : null,\n  messages_len: Array.isArray(bm && bm.messages) ? bm.messages.length : 'n/a',\n};\n\nif (!helpers || !helpers.httpRequest) {\n  return fallback(\"Sorry — I'm having a moment. A human will be with you shortly.\", {\n    stage: 'no_httpRequest',\n    env: ENV,\n  });\n}\n\nasync function callClaude(withTools) {\n  const r = await http({\n    method: 'POST',\n    url: 'https://api.anthropic.com/v1/messages',\n    headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01' },\n    body: withTools\n      ? { model: MODEL, max_tokens: 1024, system, messages, tools }\n      : { model: MODEL, max_tokens: 1024, system, messages },\n  });\n  return r;\n}\n\nlet messages = Array.isArray(bm.messages) ? bm.messages.slice() : [];\nconst toolLog = [];\n\ntry {\n  for (let iter = 0; iter < MAX_ITERS; iter++) {\n    const r = await callClaude(true);\n    const resp = r.body;\n\n    if (!r.ok || !resp || resp.type === 'error' || !resp.content) {\n      return fallback(\"Sorry — I'm having a moment. A human will be with you shortly.\", {\n        stage: 'anthropic_error',\n        status: r.status,\n        anthropic_response: resp,\n        env: ENV,\n      });\n    }\n\n    if (resp.stop_reason !== 'tool_use') {\n      resp._agent = { tool_log: toolLog, iterations: iter + 1 };\n      resp.reply_text =\n        (Array.isArray(resp.content) && (resp.content.find((b) => b.type === 'text') || {}).text) ||\n        '';\n      return [{ json: resp }];\n    }\n\n    messages.push({ role: 'assistant', content: resp.content });\n\n    const results = [];\n    for (const block of resp.content) {\n      if (block.type !== 'tool_use') continue;\n      let result;\n      try {\n        const fn = HANDLERS[block.name];\n        result = fn ? await fn(block.input || {}) : { error: `unknown tool ${block.name}` };\n      } catch (e) {\n        result = { error: String((e && (e.message || e)) || e) };\n      }\n      toolLog.push({ name: block.name, input: block.input, result });\n      results.push({\n        type: 'tool_result',\n        tool_use_id: block.id,\n        content: JSON.stringify(result),\n      });\n    }\n    messages.push({ role: 'user', content: results });\n  }\n\n  const fr = await callClaude(false);\n  if (fr.ok && fr.body && fr.body.content) {\n    const finalResp = fr.body;\n    finalResp._agent = { tool_log: toolLog, iterations: MAX_ITERS, capped: true };\n    finalResp.reply_text =\n      (Array.isArray(finalResp.content) &&\n        (finalResp.content.find((b) => b.type === 'text') || {}).text) ||\n      '';\n    return [{ json: finalResp }];\n  }\n  return fallback('Let me get a colleague to help with that — one moment.', {\n    stage: 'iteration_cap',\n    env: ENV,\n  });\n} catch (e) {\n  return fallback(\"Sorry — I'm having a moment. A human will be with you shortly.\", {\n    stage: 'exception',\n    error: String((e && (e.stack || e.message)) || e),\n    env: ENV,\n  });\n}"
       },
-      "id": "01010101-0001-0001-0001-000000000003",
-      "name": "Extract Entities",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        448,
-        420
-      ],
-      "executeOnce": true,
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Parse the Haiku extraction result. Defensive: model may wrap JSON in prose.\nconst raw = $json?.content?.[0]?.text || '{}';\nlet parsed = {};\ntry {\n  const m = raw.match(/\\{[\\s\\S]*\\}/);\n  parsed = m ? JSON.parse(m[0]) : {};\n} catch (_e) { parsed = {}; }\nconst keys = ['first_name','last_name','phone','whatsapp','email'];\nconst clean = {};\nfor (const k of keys) { if (parsed[k] && String(parsed[k]).trim()) clean[k] = String(parsed[k]).trim(); }\nclean._has_any = Object.keys(clean).length > 0;\nreturn [{ json: clean }];"
-      },
-      "id": "01010101-0001-0001-0001-000000000004",
-      "name": "Parse Entities",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        672,
-        420
+        1568,
+        192
       ],
-      "executeOnce": true
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
-          "conditions": [
-            {
-              "leftValue": "={{ $json._has_any }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "01010101-0001-0001-0001-000000000005",
-      "name": "Has Entities?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        896,
-        420
-      ]
-    },
-    {
-      "parameters": {
-        "method": "PUT",
-        "url": "=https://services.leadconnectorhq.com/contacts/{{ $('Extract').first().json.contact_id }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $vars.GHL_API_TOKEN }}"
-            },
-            {
-              "name": "Version",
-              "value": "2021-07-28"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"firstName\": {{ JSON.stringify($json.first_name || undefined) }},\n  \"lastName\": {{ JSON.stringify($json.last_name || undefined) }},\n  \"phone\": {{ JSON.stringify($json.phone || $json.whatsapp || undefined) }},\n  \"email\": {{ JSON.stringify($json.email || undefined) }},\n  \"customFields\": [\n    {{ $json.whatsapp ? '{ \"id\": \"cZnCWMR3VsZW0YXXcxGL\", \"value\": \"Yes\" },' : '' }}\n    { \"id\": \"kE3148Mfthnf3UHEPb4N\", \"value\": {{ JSON.stringify(new Date().toISOString().slice(0,10)) }} }\n  ]\n}",
-        "options": {}
-      },
-      "id": "01010101-0001-0001-0001-000000000006",
-      "name": "Update GHL Contact (extraction)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        1120,
-        420
-      ],
-      "executeOnce": true,
-      "onError": "continueRegularOutput"
+      "id": "3023d44b-48e4-4866-8bb8-1a2f13ad5fc4",
+      "name": "Call Claude"
     }
   ],
   "pinData": {},
@@ -701,47 +559,8 @@
             "node": "Get Tenant",
             "type": "main",
             "index": 0
-          },
-          {
-            "node": "Extract Entities",
-            "type": "main",
-            "index": 0
           }
         ]
-      ]
-    },
-    "Extract Entities": {
-      "main": [
-        [
-          {
-            "node": "Parse Entities",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parse Entities": {
-      "main": [
-        [
-          {
-            "node": "Has Entities?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Has Entities?": {
-      "main": [
-        [
-          {
-            "node": "Update GHL Contact (extraction)",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        []
       ]
     },
     "Get Tenant": {
@@ -826,24 +645,6 @@
         ]
       ]
     },
-    "Call Claude": {
-      "main": [
-        [
-          {
-            "node": "Log Assistant Turn",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Log Error",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Log Assistant Turn": {
       "main": [
         [
@@ -876,6 +677,29 @@
           }
         ]
       ]
+    },
+    "Call Claude": {
+      "main": [
+        [
+          {
+            "node": "Log Assistant Turn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -883,17 +707,17 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "cdb52a7a-13a7-4042-950a-8ebd9c163250",
+  "versionId": "b90fc6be-8ae5-4904-9d70-877e4159e8ea",
   "meta": {
     "instanceId": "f8c3164f3a6b8410cf5398b759de648dc6162e70cdcc88086fee208dbf4b70b9"
   },
   "id": "dDpZqBST0TG86VD7",
   "tags": [
     {
-      "name": "Second iteration",
-      "id": "m23TSVUumogymRvy",
       "updatedAt": "2026-05-15T16:11:38.478Z",
-      "createdAt": "2026-05-15T16:11:38.478Z"
+      "createdAt": "2026-05-15T16:11:38.478Z",
+      "id": "m23TSVUumogymRvy",
+      "name": "Second iteration"
     }
   ]
 }
