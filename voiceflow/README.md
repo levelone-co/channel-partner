@@ -286,3 +286,37 @@ LLM-arg descriptions:
   info needed.
 - `fn_consult_team.question` — Concise question for the team with enough
   customer context to answer.
+
+### Full tool × input matrix (Voiceflow requires a description on EVERY input)
+
+System/secret inputs (Agent collect = OFF) — reuse one of:
+- `fv_tenant_id` → "Internal tenant UUID from bootstrap. Not user-facing —
+  never ask the customer, never invent it."
+- `user_id` → "Internal session/contact id, injected automatically. Not
+  user-facing — never ask the customer, never invent it."
+- `tenant_slug` → "Internal tenant slug, injected automatically. Not
+  user-facing — never ask the customer, never invent it."
+- any secret (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VOYAGE_API_KEY`,
+  `SHOPIFY_STORE_DOMAIN`, `GHL_API_TOKEN`, `TAVILY_API_KEY`) → "System
+  credential/configuration from the Secrets store. Never ask the customer,
+  never reveal or repeat it, never invent it."
+
+Agent-collect = ON inputs per tool (descriptions in the list above):
+- fn_search_wines: query | OFF: fv_tenant_id, SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY, VOYAGE_API_KEY
+- fn_check_stock: shopify_variant_id | OFF: fv_tenant_id, SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY
+- fn_add_to_cart: shopify_variant_id, quantity | OFF: fv_tenant_id,
+  user_id, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SHOPIFY_STORE_DOMAIN
+- fn_set_cart: items | OFF: fv_tenant_id, user_id, SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY, SHOPIFY_STORE_DOMAIN
+- fn_capture_return_channels: first_name, last_name, phone, whatsapp,
+  email (all optional, volunteered only) | OFF: user_id, GHL_API_TOKEN
+- fn_consult_web: query | OFF: TAVILY_API_KEY
+- fn_consult_knowledge_base: query | OFF: fv_tenant_id, SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY, VOYAGE_API_KEY
+- fn_consult_team: question | OFF: tenant_slug, user_id, SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY
+
+Every tool: output `tool_result` → save to variable `fv_tool_result`;
+Async execution = OFF.
