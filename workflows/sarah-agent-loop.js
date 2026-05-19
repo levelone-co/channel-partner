@@ -328,15 +328,37 @@ if (!helpers || !helpers.httpRequest) {
   });
 }
 
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+// Anthropic returns 429 (rate) / 529 (overloaded) / 5xx under load —
+// all transient. Retry with backoff before letting the loop fall back,
+// so a momentary capacity blip never surfaces as a failed turn.
 async function callClaude(withTools) {
-  const r = await http({
-    method: 'POST',
-    url: 'https://api.anthropic.com/v1/messages',
-    headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01' },
-    body: withTools
-      ? { model: MODEL, max_tokens: 1024, system, messages, tools }
-      : { model: MODEL, max_tokens: 1024, system, messages },
-  });
+  const body = withTools
+    ? { model: MODEL, max_tokens: 1024, system, messages, tools }
+    : { model: MODEL, max_tokens: 1024, system, messages };
+  const delays = [800, 1800, 4000, 8000];
+  let r;
+  for (let attempt = 0; attempt <= delays.length; attempt++) {
+    r = await http({
+      method: 'POST',
+      url: 'https://api.anthropic.com/v1/messages',
+      headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01' },
+      body,
+    });
+    const b = r.body || {};
+    const transient =
+      r.status === 429 ||
+      r.status === 529 ||
+      r.status >= 500 ||
+      (b.type === 'error' &&
+        b.error &&
+        (b.error.type === 'overloaded_error' ||
+          b.error.type === 'api_error' ||
+          b.error.type === 'rate_limit_error'));
+    if (!transient || attempt === delays.length) return r;
+    await sleep(delays[attempt]);
+  }
   return r;
 }
 
