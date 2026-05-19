@@ -218,6 +218,43 @@ After ANY code change here: re-paste the body into the VF function, then
 re-Add inputs / re-Save outputs (mappings don't survive a code swap), then
 **Publish → Production** before testing the widget.
 
+## 5c. Behaviour + cost tuning (post first-run)
+
+First successful voice run was verbose, ungrounded, and didn't add to cart.
+Fixes applied in code (`bootstrap.js`):
+- **Brevity + grounding + cart** enforced via a VF-only operator addendum
+  appended to `fv_system_text` (one spoken sentence; never name a wine not
+  returned by fn_search_wines this conversation; cart needs a same-turn
+  tool call; don't read URLs aloud).
+- **Channel defaults to `voice`** (widget path) so the behavioural
+  prompt's voice length rule applies; the adapter still overrides for the
+  text probe.
+- **Removed the launch-time Voyage embed + search_wines** from bootstrap —
+  it ran on an empty message (`"featured wines"` junk in your log), cost a
+  Voyage call every session, and is redundant: RAG is the
+  `fn_search_wines` tool's job in the Operator architecture.
+
+Operator-side settings to do (cost + brevity):
+- **Max response tokens** ≈ 120–160 — hard-caps voice length AND output
+  cost (output tokens dominate spend).
+- **Disable tools not needed for the demo** (`fn_consult_web`,
+  `fn_consult_knowledge_base`, `fn_consult_team`) — fewer tools = fewer
+  agent loop iterations = less spend (your log showed ~$0.0029 per
+  Operator AI result; each tool round-trip adds one).
+- Confirm the Operator model is **Claude Haiku** (cheapest capable).
+- Keep MAX agent iterations low (≈3–4).
+- Note: Voiceflow flattens the system prompt so Anthropic prompt-caching
+  is lost — documented eval cost caveat, not fixable in VF.
+
+**Voice cart caveat (expected, not a bug to chase):** the cart is a
+zero-auth Shopify *permalink* — there's no on-site cart to inspect, and a
+URL can't be spoken. "Nothing in my cart" is therefore expected on voice;
+the correct check is whether `fn_add_to_cart` ran and a row exists:
+`select * from customer_carts where contact_id = '<your user_id>';`
+For the eval this is a known voice limitation (logged as a caveat); the
+functional gate is the tool firing + the customer_carts row, not an
+on-site cart.
+
 ## 6. Operator step — reproducible build details (Agentic builder)
 
 **Workflow ("Agent Flow") LLM description** (routing/purpose blurb — NOT the

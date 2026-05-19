@@ -43,7 +43,7 @@
   const sbHeaders = (e) => ({ apikey: e.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${e.SUPABASE_SERVICE_ROLE_KEY}` });
   const tenant_slug = args.tenant_slug || 'level_24_wines';
   const contact_id = args.user_id;          // built-in: VF userID = contact id
-  const channel = args.channel || 'web';
+  const channel = args.channel || 'voice';  // widget path is voice; adapter overrides
   const message = args.last_utterance;      // built-in: user's last utterance
 
   // GHL custom-field IDs — same as n8n Build Messages.
@@ -115,39 +115,37 @@
     return true;
   }).map((r) => ({ role: r.role, content: r.content }));
 
-  // 5. Voyage embed + search_wines RPC
-  const emb = await http({
-    method: 'POST',
-    url: 'https://api.voyageai.com/v1/embeddings',
-    headers: { Authorization: `Bearer ${env.VOYAGE_API_KEY}` },
-    body: { model: 'voyage-4-lite', input: [message], input_type: 'query', output_dimension: 512 },
-  });
-  const vec = emb.body && emb.body.data && emb.body.data[0] && emb.body.data[0].embedding;
-  const wRes = vec ? await http({
-    method: 'POST',
-    url: `${env.SUPABASE_URL}/rest/v1/rpc/search_wines`,
-    headers: sbHeaders(env),
-    body: { p_tenant_id: tenant_id, p_query_embedding: vec, p_match_count: 3 },
-  }) : { body: [] };
-  const wines = Array.isArray(wRes.body) ? wRes.body : [];
+  // 5. NO launch-time RAG. In the VF Operator architecture the agent does
+  //    retrieval on demand via the fn_search_wines TOOL (the n8n engine
+  //    instead injects a per-turn retrieved block — different mechanism,
+  //    same grounding). Running an embed here on an empty launch message
+  //    was wasteful and wrong, so it's removed (cost + correctness).
+  const wines = [];
 
-  const wineBlock = wines.length
-    ? '## Available wines for this conversation\n' + wines.map((w, i) => {
-        const head = `${i + 1}. **${w.title}** — ${[w.varietal, w.vintage].filter(Boolean).join(' ')}` +
-          (w.price ? `, R${w.price}` : '') +
-          (w.shopify_variant_id ? ` [variant_id: ${w.shopify_variant_id} — use this for check_stock/add_to_cart; never say it aloud]` : '');
-        const body = w.description ? `\n   ${w.description}` : '';
-        const pair = w.pairings ? `\n   Pairings: ${w.pairings}.` : '';
-        const award = w.awards ? ` Awards: ${w.awards}.` : '';
-        return head + body + pair + award;
-      }).join('\n')
-    : '';
+  // VF-specific operator addendum — enforces what n8n gets from its
+  // per-turn retrieved-context block + channel routing. Kept OUT of the
+  // shared Supabase prompts (those are cross-engine IP).
+  const vfAddendum = [
+    '## Voice + grounding rules (this channel)',
+    '- You are on VOICE. Reply in ONE short spoken sentence. No lists, no',
+    '  markdown, no URLs read aloud. Be warm and decisive, then stop.',
+    '- NEVER name, describe, price, or recommend a wine unless it was',
+    '  returned by fn_search_wines in THIS conversation. If you have not',
+    '  searched yet for what they want, call fn_search_wines FIRST. Never',
+    '  use outside wine knowledge for what we sell or invent vintages/prices.',
+    '- Cart: to add/remove/replace/clear you MUST call fn_add_to_cart or',
+    '  fn_set_cart in the same turn, using the shopify_variant_id from a',
+    '  fn_search_wines result. Only state cart contents the tool just',
+    "  returned. Don't claim anything was added without the tool call.",
+    '- On voice you cannot read a checkout link aloud — after a successful',
+    '  cart tool call, say it is ready and offer to text or email the link;',
+    "  do not recite the URL.",
+  ].join('\n');
 
-  // System: cached layered prompt + contact ctx, then uncached wine block.
   const systemBlocks = [
-    { type: 'text', text: stablePrompt + contactBlock, cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: stablePrompt + contactBlock + '\n\n' + vfAddendum,
+      cache_control: { type: 'ephemeral' } },
   ];
-  if (wineBlock) systemBlocks.push({ type: 'text', text: wineBlock });
 
   const userMsg = { role: 'user', content: `[channel: ${channel}]\n${message}` };
   const messages = [...history, userMsg];

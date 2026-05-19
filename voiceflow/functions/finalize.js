@@ -40,7 +40,7 @@
   const sbHeaders = (e) => ({ apikey: e.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${e.SUPABASE_SERVICE_ROLE_KEY}` });
   const tenant_id = args.fv_tenant_id;
   const contact_id = args.user_id;            // built-in
-  const channel = args.channel || 'web';
+  const channel = args.channel || 'voice';
   const message = args.last_utterance;        // built-in
   const reply = args.last_response || '';     // built-in: agent's last reply
   const path = args.path || 'widget';
