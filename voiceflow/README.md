@@ -189,6 +189,35 @@ n8n remains the text baseline. The final report states a recommendation
 WITH the explicit n8n=text vs VF=voice cross-modality caveat (see
 `eval/rubric/quality-rubric.yaml`).
 
+## 5b. Voiceflow Function wiring — HARD RULES (learned from testing)
+
+A failed first run (`bootstrap failed 1ms`, `{"error":{"varName":"VOYAGE_API_KEY"}}`,
+`fv_system_text: 0`, Operator falling back to Voiceflow's default persona)
+proved three non-obvious Voiceflow Function-tool rules. The function code
+now complies; you must do the wiring side:
+
+1. **Every external variable must be a direct `args.X`.** Voiceflow only
+   surfaces an input if it sees `args.NAME` literally (an `const env=args`
+   alias is invisible to its analyzer, and its runtime throws
+   `{"error":{"varName":"NAME"}}` the instant the code touches an
+   unprovided var). All functions were refactored to declare each secret as
+   `const NAME = args.NAME;` at the top — so Voiceflow now lists them all.
+2. **Secrets are NOT auto-injected.** Each detected input must be **Added**
+   and given a value: secrets → map to the Secrets store entry of the same
+   name; `tenant_slug`/`channel` → the variable; `user_id`/`last_utterance`
+   /`last_response` → the built-ins; `fv_tenant_id` → the variable set by
+   bootstrap. Agent-collect ON only for the real tool args.
+3. **Outputs must be Saved.** Function returns a FLAT object; each top-level
+   key is an output you must **Save to a variable** (same name). Tools
+   return `{ tool_result }` → save to `fv_tool_result` (the `outputVars`
+   wrapper was removed — Voiceflow reads top-level keys). bootstrap returns
+   `fv_system_text` etc. → save each, especially **`fv_system_text`** (if
+   not saved it stays 0 and the Operator has no prompt → default persona).
+
+After ANY code change here: re-paste the body into the VF function, then
+re-Add inputs / re-Save outputs (mappings don't survive a code swap), then
+**Publish → Production** before testing the widget.
+
 ## 6. Operator step — reproducible build details (Agentic builder)
 
 **Workflow ("Agent Flow") LLM description** (routing/purpose blurb — NOT the

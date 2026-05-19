@@ -6,7 +6,9 @@
 // Voiceflow Function: fn_check_stock  (tool: check_stock)
 // Inputs: shopify_variant_id (tool arg) | fv_tenant_id, + secrets
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY. Output var: tool_result.
-  const env = args;
+  const SUPABASE_URL = args.SUPABASE_URL;
+  const SUPABASE_SERVICE_ROLE_KEY = args.SUPABASE_SERVICE_ROLE_KEY;
+  const env = { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY };
   const tenant_id = args.fv_tenant_id;
   const http = async ({ method = 'GET', url, headers = {}, body }) => {
     try {
@@ -35,4 +37,4 @@
   const result = !row
     ? { available: true, note: 'not in catalogue cache; checkout will confirm' }
     : { available: !!row.inventory_available, wine: `${row.title || ''} ${row.vintage || ''}`.trim() };
-  return { outputVars: { tool_result: JSON.stringify(result) } };
+  return { tool_result: JSON.stringify(result) };

@@ -8,7 +8,10 @@
 //   + secrets SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SHOPIFY_STORE_DOMAIN.
 // Output var: tool_result. Cart = zero-auth Shopify permalink; lines persist
 // per (tenant_id, contact_id) in customer_carts.
-  const env = args;
+  const SUPABASE_URL = args.SUPABASE_URL;
+  const SUPABASE_SERVICE_ROLE_KEY = args.SUPABASE_SERVICE_ROLE_KEY;
+  const SHOPIFY_STORE_DOMAIN = args.SHOPIFY_STORE_DOMAIN;
+  const env = { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SHOPIFY_STORE_DOMAIN };
   const tenant_id = args.fv_tenant_id;
   const contact_id = args.user_id;
   const http = async ({ method = 'GET', url, headers = {}, body }) => {
@@ -66,4 +69,4 @@
     lines[vid] = (lines[vid] || 0) + qty;
     result = await commitCart(lines);
   }
-  return { outputVars: { tool_result: JSON.stringify(result) } };
+  return { tool_result: JSON.stringify(result) };

@@ -7,7 +7,8 @@
 // Backup acknowledgment path — never solicits. Inputs: first_name,
 //   last_name, phone, whatsapp, email (tool args) | user_id, + secret
 //   GHL_API_TOKEN. Output var: tool_result.
-  const env = args;
+  const GHL_API_TOKEN = args.GHL_API_TOKEN;
+  const env = { GHL_API_TOKEN };
   const contact_id = args.user_id;
   const http = async ({ method = 'GET', url, headers = {}, body }) => {
     try {
@@ -45,4 +46,4 @@
       customFields,
     },
   });
-  return { outputVars: { tool_result: JSON.stringify({ captured: true }) } };
+  return { tool_result: JSON.stringify({ captured: true }) };

@@ -6,7 +6,10 @@
 // Voiceflow Function: fn_search_wines  (tool: search_wines)
 // Inputs: query (tool arg) | fv_tenant_id, + secrets SUPABASE_URL,
 //   SUPABASE_SERVICE_ROLE_KEY, VOYAGE_API_KEY. Output var: tool_result.
-  const env = args;
+  const SUPABASE_URL = args.SUPABASE_URL;
+  const SUPABASE_SERVICE_ROLE_KEY = args.SUPABASE_SERVICE_ROLE_KEY;
+  const VOYAGE_API_KEY = args.VOYAGE_API_KEY;
+  const env = { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, VOYAGE_API_KEY };
   const tenant_id = args.fv_tenant_id;
   const http = async ({ method = 'GET', url, headers = {}, body }) => {
     try {
@@ -44,4 +47,4 @@
     });
     result = r.ok ? { wines: r.body } : { error: 'search failed', detail: r.body };
   }
-  return { outputVars: { tool_result: JSON.stringify(result) } };
+  return { tool_result: JSON.stringify(result) };

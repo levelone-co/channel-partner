@@ -8,7 +8,9 @@
 // Sarah keeps selling; the team reply lands in team_notes on a later turn.
 // Inputs: question (tool arg) | tenant_slug, user_id, + secrets
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY. Output var: tool_result.
-  const env = args;
+  const SUPABASE_URL = args.SUPABASE_URL;
+  const SUPABASE_SERVICE_ROLE_KEY = args.SUPABASE_SERVICE_ROLE_KEY;
+  const env = { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY };
   const tenant_slug = args.tenant_slug || 'level_24_wines';
   const contact_id = args.user_id;
   const http = async ({ method = 'GET', url, headers = {}, body }) => {
@@ -42,4 +44,4 @@
     });
   }
   const result = { content: 'Question posted to team. Continue the conversation; their reply will land in team_notes on a later turn.' };
-  return { outputVars: { tool_result: JSON.stringify(result) } };
+  return { tool_result: JSON.stringify(result) };

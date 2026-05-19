@@ -6,7 +6,8 @@
 // Voiceflow Function: fn_consult_web  (tool: consult_web)
 // Inputs: query (tool arg) | + secret TAVILY_API_KEY. Degrades gracefully
 //   if the key is absent. Output var: tool_result.
-  const env = args;
+  const TAVILY_API_KEY = args.TAVILY_API_KEY;
+  const env = { TAVILY_API_KEY };
   const http = async ({ method = 'GET', url, headers = {}, body }) => {
     try {
       const init = { method, headers: { ...headers } };
@@ -43,4 +44,4 @@
       };
     }
   }
-  return { outputVars: { tool_result: JSON.stringify(result) } };
+  return { tool_result: JSON.stringify(result) };

@@ -8,7 +8,10 @@
 // Inputs: items (tool arg; array or JSON string) | fv_tenant_id, user_id,
 //   + secrets SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SHOPIFY_STORE_DOMAIN.
 // Output var: tool_result.
-  const env = args;
+  const SUPABASE_URL = args.SUPABASE_URL;
+  const SUPABASE_SERVICE_ROLE_KEY = args.SUPABASE_SERVICE_ROLE_KEY;
+  const SHOPIFY_STORE_DOMAIN = args.SHOPIFY_STORE_DOMAIN;
+  const env = { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SHOPIFY_STORE_DOMAIN };
   const tenant_id = args.fv_tenant_id;
   const contact_id = args.user_id;
   const http = async ({ method = 'GET', url, headers = {}, body }) => {
@@ -51,4 +54,4 @@
   const result = !entries.length
     ? { cleared: true, checkout_url: null, via: 'cleared' }
     : { cart: entries.map((k) => ({ variant_id: k, quantity: lines[k] })), checkout_url, via: 'permalink' };
-  return { outputVars: { tool_result: JSON.stringify(result) } };
+  return { tool_result: JSON.stringify(result) };

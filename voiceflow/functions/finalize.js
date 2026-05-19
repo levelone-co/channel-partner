@@ -17,7 +17,11 @@
  *
  * http + sbHeaders are inlined below (VF Functions can't import modules).
  */
-  const env = args;
+  const SUPABASE_URL = args.SUPABASE_URL;
+  const SUPABASE_SERVICE_ROLE_KEY = args.SUPABASE_SERVICE_ROLE_KEY;
+  const GHL_API_TOKEN = args.GHL_API_TOKEN;
+  const ANTHROPIC_API_KEY = args.ANTHROPIC_API_KEY;
+  const env = { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GHL_API_TOKEN, ANTHROPIC_API_KEY };
   const http = async ({ method = 'GET', url, headers = {}, body }) => {
     try {
       const init = { method, headers: { ...headers } };

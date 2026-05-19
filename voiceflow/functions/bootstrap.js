@@ -20,7 +20,11 @@
  *
  * http + sbHeaders are inlined below (VF Functions can't import modules).
  */
-  const env = args; // VF injects secrets as args; map as needed
+  const SUPABASE_URL = args.SUPABASE_URL;
+  const SUPABASE_SERVICE_ROLE_KEY = args.SUPABASE_SERVICE_ROLE_KEY;
+  const VOYAGE_API_KEY = args.VOYAGE_API_KEY;
+  const GHL_API_TOKEN = args.GHL_API_TOKEN;
+  const env = { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, VOYAGE_API_KEY, GHL_API_TOKEN };
   const http = async ({ method = 'GET', url, headers = {}, body }) => {
     try {
       const init = { method, headers: { ...headers } };
