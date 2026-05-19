@@ -191,6 +191,18 @@ WITH the explicit n8n=text vs VF=voice cross-modality caveat (see
 
 ## 6. Operator step — reproducible build details (Agentic builder)
 
+**Workflow ("Agent Flow") LLM description** (routing/purpose blurb — NOT the
+system prompt, which stays `{fv_system_text}`):
+
+> Handles every customer conversation for Level 24 Wines as Sarah, the
+> estate's voice wine concierge. Use for anything wine-related:
+> recommendations by taste, food pairing, occasion or budget; checking
+> stock; building and modifying the customer's cart and giving them a
+> checkout link; answering questions about the wines, the estate, visiting
+> and shipping; and researching external wine context when needed. Also
+> silently captures any contact details the customer volunteers, without
+> ever asking for them. Default workflow for all inbound conversations.
+
 Topology (one Operator, not two):
 `Start → bootstrap → Operator "Sarah" → finalize → End conversation`.
 
