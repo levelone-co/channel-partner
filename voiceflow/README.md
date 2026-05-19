@@ -188,3 +188,65 @@ Two distinct activities (Voice-only build):
 n8n remains the text baseline. The final report states a recommendation
 WITH the explicit n8n=text vs VF=voice cross-modality caveat (see
 `eval/rubric/quality-rubric.yaml`).
+
+## 6. Operator step — reproducible build details (Agentic builder)
+
+Topology (one Operator, not two):
+`Start → bootstrap → Operator "Sarah" → finalize → End conversation`.
+
+- **Prompt field:** `{fv_system_text}` (the layered Supabase prompt from
+  bootstrap — do not hand-type the persona).
+- **Model:** Claude Haiku if selectable; else nearest Claude → record model
+  delta as an eval caveat.
+- **Opening / greeting (Voice needs one — no visible UI):** one short,
+  on-brand, non-soliciting line, e.g.
+  *"Hi, I'm Sarah from Level 24 Wines — what are you in the mood for today?"*
+- **End message:** leave blank (Sarah's last reply stands; finalize is
+  silent). Optional brief sign-off only if the customer is clearly done
+  ("Enjoy the wine — cheers!"). Never solicit in the end message.
+- **Exit condition** `reply_delivered` — LLM description: *"Exit when you
+  have given the customer a complete reply for their current request — a
+  recommendation, an answer, or a cart confirmation — and there is nothing
+  further to do this turn."* Required variables: none.
+
+### Tool execution model
+All 8 tools are **synchronous** — each returns a `tool_result` the agent
+needs the same turn. Do NOT mark any as background/async. The only
+asynchronous hop is `consult_team`'s human reply, handled out of band by
+the `team-reply` workflow → GHL `team_notes` → `bootstrap` next turn
+(no VF async setting). `finalize` runs after the Operator already spoke,
+so it adds no customer-perceived latency.
+
+### Tool LLM descriptions (paste verbatim; faithful to tools/account-tools.json)
+
+- **fn_search_wines** — Search the wine catalogue by intent or attribute.
+  Call whenever the customer expresses any preference — varietal, price
+  range, food pairing, occasion, or mood. Returns top matches with title,
+  varietal, vintage, price, pairings, awards, and the variant_id for
+  stock/cart.
+- **fn_check_stock** — Check live stock for a specific wine VARIANT before
+  adding to cart. Call if there's any doubt it's available. Requires the
+  shopify_variant_id from the retrieved wines.
+- **fn_add_to_cart** — Incrementally add a wine variant to the customer's
+  prepared cart and return a checkout link. Call ONLY after explicit
+  confirmation ("yes", "add it", "sure"). Use for "add another"/"also add".
+- **fn_set_cart** — Replace the customer's ENTIRE cart with exactly the
+  given items in one call. Use for any remove/replace/change-quantity/clear
+  ("make it just 2 Shiraz", "empty my cart" → items:[]). Returns the
+  updated checkout link.
+- **fn_capture_return_channels** — Backup acknowledgment only. Call when
+  the customer has just unmistakably volunteered name/phone/WhatsApp/email
+  AND your reply will reference it. NEVER call to ask for contact details;
+  never solicit.
+- **fn_consult_web** — Search the public web for things outside the
+  catalogue and prompts — external critic reviews (Tim Atkin, Decanter),
+  SA wine-industry context, producer news, awards not in our list. Never
+  for in-catalogue questions.
+- **fn_consult_knowledge_base** — Search the estate's internal knowledge
+  base (winemaker notes, FAQ, tasting events, estate history, visiting/
+  shipping info) for account-specific questions not covered by the
+  catalogue or your instructions.
+- **fn_consult_team** — Post a question to the estate team via Slack ONLY
+  when it's genuinely beyond your knowledge and you've already tried
+  consult_web and consult_knowledge_base. Their reply arrives a later
+  turn. Do not pause or stall — keep selling with what you know.
