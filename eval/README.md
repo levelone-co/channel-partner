@@ -5,6 +5,17 @@ Branch: `eval/voiceflow`. Both engines share the SAME Supabase data layer,
 prompts, tools and RAG (migration rules) — the eval isolates the
 orchestration engine as the only variable.
 
+> **⚠ Cross-modality (operator decision):** the VF project is built as a
+> **Voice** assistant; n8n is **text**. This is NOT a clean apples-to-apples
+> head-to-head. The text harness below is retained only as a
+> **functional-parity probe** of the VF voice project (grounding, tool use,
+> SQL gates) — VF latency from it is NOT comparable and is excluded from
+> latency scoring. Voice quality / perceived latency / voice-readiness are
+> scored from the **live published voice widget**. See the cross-modality
+> notice in `rubric/quality-rubric.yaml`. The final output is a
+> recommendation with explicit modality caveats, not a pure weighted-sum
+> winner.
+
 ## Layout
 
 ```

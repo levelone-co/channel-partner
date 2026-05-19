@@ -138,8 +138,14 @@ async function main(args) {
     },
   });
 
+  // Flattened plain-text system for Voiceflow's Agent step (which does not
+  // take Anthropic content-blocks/cache_control). Losing cache_control is a
+  // minor cost difference — record it as a documented eval caveat.
+  const vf_system_text = systemBlocks.map((b) => b.text).join('\n\n');
+
   return {
     vf_system: systemBlocks,
+    vf_system_text,
     vf_messages: messages,
     vf_tenant_id: tenant_id,
     vf_contact_id: contact_id,

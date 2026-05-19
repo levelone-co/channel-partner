@@ -12,6 +12,16 @@ Build it *idiomatically* (visual flow + Agent step + Functions). Do **not**
 paste `sarah-agent-loop.js` into one mega-Function — the whole point of the
 "prompt-editing ergonomics" dimension is to exercise the studio.
 
+> **Operator decision: this VF project is a VOICE assistant** (Chat/Voice is
+> a binary choice at project creation). The Functions
+> (`bootstrap`/`tools`/`finalize`) are modality-agnostic and unchanged. The
+> consequences for the eval are recorded in `eval/rubric/quality-rubric.yaml`
+> (cross-modality notice) and `eval/README.md`: n8n=text vs VF=voice is NOT
+> an apples-to-apples head-to-head, so the text harness is retained only as
+> a **functional-parity probe** of the voice project, and voice quality /
+> perceived latency / Phase-1 voice-readiness are scored from the **live
+> voice build**, not docs.
+
 ## 0. Account + secrets
 
 Free/sandbox account. In **Voiceflow → project → Integrations / API keys**,
@@ -97,12 +107,14 @@ Team-reply resumption needs **no VF work** — the existing n8n `team-reply`
 workflow writes `team_notes` onto the GHL contact; `bootstrap`'s Get Contact
 picks it up next turn exactly as the n8n path does.
 
-## 4. Native widget path (second integration tested)
+## 4. Voice widget path (primary VF tester)
 
-On a **staging Shopify theme** (or behind a `?vf=1` query-param gate so it
-never collides with the live GHL `Live chat` widget, id
-`6a072ec62a4bbd9f1746f45d`), paste the Voiceflow web-chat embed before
-`</body>` and set the user id + context:
+Because this is a **Voice** assistant, the widget renders as a voice/call
+bubble — this is the main way to actually evaluate VF voice. Project must be
+**Published → Production** or the bubble never appears. The current live
+snippet (in Shopify `layout/theme.liquid`, before `</body>`, with the GHL
+loader commented out) is the voice form — keep the `voice:` block and add
+`versionID`:
 
 ```html
 <script type="text/javascript">
@@ -110,10 +122,10 @@ never collides with the live GHL `Live chat` widget, id
     var v = d.createElement(t), s = d.getElementsByTagName(t)[0];
     v.onload = function() {
       window.voiceflow.chat.load({
-        verify: { projectID: 'YOUR_VF_PROJECT_ID' },
+        verify: { projectID: '69fb1aaa5cd3c58960585794' },
         url: 'https://general-runtime.voiceflow.com',
         versionID: 'production',
-        user: { userID: 'eval-vf-web-' + (window.crypto?.randomUUID?.() || Date.now()) }
+        voice: { url: 'https://runtime-api.voiceflow.com' }
       });
     };
     v.src = 'https://cdn.voiceflow.com/widget-next/bundle.mjs';
@@ -123,16 +135,29 @@ never collides with the live GHL `Live chat` widget, id
 ```
 
 Logging still happens inside the same `bootstrap`/`finalize` Functions, so
-widget conversations land in Supabase with `metadata.engine='voiceflow'`,
+voice conversations land in Supabase with `metadata.engine='voiceflow'`,
 `metadata.path='widget'` — no extra plumbing. The widget path has no
 `tenant_slug`/`channel` from an adapter, so `bootstrap` defaults
 `tenant_slug='level_24_wines'`, `channel='web'` when the VF vars are absent.
+Use the live voice widget to score the `phase1_voice_readiness` sub-criterion
+(turn-taking, perceived latency, do tools fire in voice, grounding).
 
 ## 5. Verification
 
-Run `eval/runner/run_eval.py` (it drives both engines through the same
-contract) then the 7 validity gates in `eval/README.md`. The VF build is
-"parity-correct" when, for the same scenario, it produces grounded
-in-catalogue recommendations, bare cart permalinks, silent capture, and the
-no-solicitation / no-stall SQL gates return 0 for `eval-vf-*` contacts —
-exactly as for `eval-n8n-*`.
+Two distinct activities (Voice-only build):
+
+1. **Functional-parity probe (automated, text).** `eval/runner/run_eval.py`
+   still drives the VF voice project via `vf-adapter.json` with text
+   `interact` — most VF voice projects accept text and return text traces.
+   Purpose is NOT latency/quality comparison; it's a parity check: does VF
+   ground in catalogue, fire tools, write `conversations` rows with
+   `metadata.engine='voiceflow'`, and pass the no-solicitation / no-stall
+   SQL gates in `eval/README.md` for `eval-vf-*` contacts. VF latency from
+   this probe is excluded from latency scoring (text != voice).
+2. **Live voice assessment (manual).** Use the published voice widget on the
+   site to score `phase1_voice_readiness` and qualitative voice quality /
+   perceived responsiveness. This is the real VF-voice evidence.
+
+n8n remains the text baseline. The final report states a recommendation
+WITH the explicit n8n=text vs VF=voice cross-modality caveat (see
+`eval/rubric/quality-rubric.yaml`).

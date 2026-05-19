@@ -2,6 +2,22 @@
 # Weighted sum per engine per volume band picks the pilot winner.
 # Response-quality is a HARD GATE: mean < 3.5 / 5 => engine disqualified
 # regardless of cost.
+#
+# ⚠ CROSS-MODALITY NOTICE (operator decision: VF built as a VOICE assistant).
+# The n8n engine is text; the Voiceflow engine is voice. This is NOT a clean
+# apples-to-apples head-to-head. Consequences applied below:
+#  - response_quality + end_to_end_latency: scored PER ENGINE on its own
+#    modality and reported side-by-side as QUALITATIVE evidence, not a
+#    single blended winner. The hard quality gate still applies per engine.
+#  - The text harness (run_eval.py via vf-adapter) is retained only as a
+#    FUNCTIONAL-PARITY PROBE of the VF voice project (does it ground in
+#    catalogue, call tools, obey no-solicitation/no-stall via the SQL gates)
+#    — its VF latency numbers are NOT comparable to n8n's and are excluded
+#    from latency scoring.
+#  - lock_in_and_capability.phase1_voice_readiness is now assessed from the
+#    LIVE VF voice build (real feel), not from docs.
+#  - The final decision is a recommendation with explicit modality caveats,
+#    not a pure weighted-sum winner.
 
 dimensions:
 
@@ -32,7 +48,12 @@ dimensions:
 
   end_to_end_latency:
     weight: 0.20
-    method: "Median + p90 wall-clock per scenario over meta.repeats runs."
+    cross_modality_note: >
+      n8n = text round-trip; VF = voice (STT + LLM + TTS). These are not
+      comparable. Report n8n text latency from the harness; report VF voice
+      latency as a separate qualitative "perceived responsiveness" note
+      from the live voice build. Do NOT blend into one winner.
+    method: "Median + p90 wall-clock per scenario over meta.repeats runs (n8n only)."
     scoring:
       - { score: 5, p50_ms_max: 3000 }
       - { score: 4, p50_ms_max: 4500 }
@@ -63,10 +84,19 @@ dimensions:
         anchor_1: "Logic trapped in proprietary, non-exportable studio state."
       phase1_voice_readiness:
         provider: "agnostic — carrier TBD in a dedicated Phase-1 voice spike"
-        anchor_5: "Native, first-class voice path to channel='voice' with minimal new build."
-        anchor_3: "Reachable via a documented bridge (e.g. GHL Voice AI) with moderate glue."
-        anchor_1: "Requires a bespoke telephony + STT + TTS stack bolted on."
+        assessed_from: "the LIVE VF voice build (operator decision) — real feel, not docs"
+        anchor_5: "VF voice: natural turn-taking, low perceived latency, tools work in voice, grounded."
+        anchor_3: "Works but noticeable latency / awkward barge-in / occasional tool or grounding miss."
+        anchor_1: "Voice unusable for a sommelier flow (stalls, cuts off, hallucinates, tool failures)."
+        n8n_side: "n8n has NO voice — scored 1 here by definition; voice is VF's differentiator."
 
 decision:
-  formula: "engine_score(band) = sum(dimension_score * weight); quality gate applied first."
-  winner: "Highest blended score at the most-likely volume band; ties broken by quality then cost."
+  modality: "n8n=text vs VF=voice — cross-modality, NOT a pure weighted-sum winner."
+  formula: >
+    Report per-engine: (a) functional parity (SQL gates + grounding, from the
+    text probe for VF), (b) cost @ volume (still comparable), (c) lock-in,
+    (d) n8n text quality/latency, (e) VF live-voice quality/perceived
+    latency/voice-readiness. Recommendation states which engine for the
+    pilot AND whether the pilot channel is text or voice, with the
+    cross-modality caveat made explicit. Quality hard-gate applies per
+    engine on its own modality.
