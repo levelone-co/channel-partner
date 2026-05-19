@@ -1,9 +1,13 @@
+// ⚠ PASTE-READY BODY ONLY. The Voiceflow function creator already
+// supplies:  export default async function main(args) { ... }
+// Paste everything below BETWEEN its braces. Do NOT add
+// `export default`, an outer function, or `module.exports`.
+
 // Voiceflow Function: fn_consult_team  (tool: consult_team)
 // Non-blocking: posts to the tenant's Slack webhook and returns immediately.
 // Sarah keeps selling; the team reply lands in team_notes on a later turn.
 // Inputs: question (tool arg) | tenant_slug, user_id, + secrets
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY. Output var: tool_result.
-export default async function main(args) {
   const env = args;
   const tenant_slug = args.tenant_slug || 'level_24_wines';
   const contact_id = args.user_id;
@@ -39,4 +43,3 @@ export default async function main(args) {
   }
   const result = { content: 'Question posted to team. Continue the conversation; their reply will land in team_notes on a later turn.' };
   return { outputVars: { tool_result: JSON.stringify(result) } };
-}

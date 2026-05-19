@@ -1,7 +1,11 @@
+// ⚠ PASTE-READY BODY ONLY. The Voiceflow function creator already
+// supplies:  export default async function main(args) { ... }
+// Paste everything below BETWEEN its braces. Do NOT add
+// `export default`, an outer function, or `module.exports`.
+
 // Voiceflow Function: fn_consult_web  (tool: consult_web)
 // Inputs: query (tool arg) | + secret TAVILY_API_KEY. Degrades gracefully
 //   if the key is absent. Output var: tool_result.
-export default async function main(args) {
   const env = args;
   const http = async ({ method = 'GET', url, headers = {}, body }) => {
     try {
@@ -40,4 +44,3 @@ export default async function main(args) {
     }
   }
   return { outputVars: { tool_result: JSON.stringify(result) } };
-}

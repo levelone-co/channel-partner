@@ -1,8 +1,12 @@
+// ⚠ PASTE-READY BODY ONLY. The Voiceflow function creator already
+// supplies:  export default async function main(args) { ... }
+// Paste everything below BETWEEN its braces. Do NOT add
+// `export default`, an outer function, or `module.exports`.
+
 // Voiceflow Function: fn_capture_return_channels  (tool: capture_return_channels)
 // Backup acknowledgment path — never solicits. Inputs: first_name,
 //   last_name, phone, whatsapp, email (tool args) | user_id, + secret
 //   GHL_API_TOKEN. Output var: tool_result.
-export default async function main(args) {
   const env = args;
   const contact_id = args.user_id;
   const http = async ({ method = 'GET', url, headers = {}, body }) => {
@@ -42,4 +46,3 @@ export default async function main(args) {
     },
   });
   return { outputVars: { tool_result: JSON.stringify({ captured: true }) } };
-}

@@ -86,9 +86,15 @@ Start
 Tool Functions (registered on the Agent step, one per tool in
 `tools/account-tools.json`): `fn_search_wines`, `fn_check_stock`,
 `fn_add_to_cart`, `fn_set_cart`, `fn_capture_return_channels`,
-`fn_consult_web`, `fn_consult_knowledge_base`, `fn_consult_team`. Their
-bodies are in `functions/tools.js` (one exported handler each — split into
-separate VF Functions, sharing the `functions/_http.js` helper inline).
+`fn_consult_web`, `fn_consult_knowledge_base`, `fn_consult_team`.
+
+**Every file in `voiceflow/functions/` (the 8 `fn_*` + `bootstrap` +
+`finalize`) is PASTE-READY BODY ONLY.** The Voiceflow function creator
+already supplies the `export default async function main(args) { … }`
+wrapper — paste the file's contents *between its braces*. Do not add
+`export default`, an outer function, or `module.exports`. The `http` helper
+(and `sbHeaders` where needed) is inlined in each file because VF Functions
+cannot import shared modules.
 
 The Agent step **runs the tool-loop natively** — that is Voiceflow's
 idiomatic equivalent of the JS `for (iter < MAX_ITERS)` loop. Register each

@@ -1,9 +1,13 @@
+// ⚠ PASTE-READY BODY ONLY. The Voiceflow function creator already
+// supplies:  export default async function main(args) { ... }
+// Paste everything below BETWEEN its braces. Do NOT add
+// `export default`, an outer function, or `module.exports`.
+
 // Voiceflow Function: fn_add_to_cart  (tool: add_to_cart)
 // Inputs: shopify_variant_id, quantity (tool args) | fv_tenant_id, user_id,
 //   + secrets SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SHOPIFY_STORE_DOMAIN.
 // Output var: tool_result. Cart = zero-auth Shopify permalink; lines persist
 // per (tenant_id, contact_id) in customer_carts.
-export default async function main(args) {
   const env = args;
   const tenant_id = args.fv_tenant_id;
   const contact_id = args.user_id;
@@ -63,4 +67,3 @@ export default async function main(args) {
     result = await commitCart(lines);
   }
   return { outputVars: { tool_result: JSON.stringify(result) } };
-}

@@ -1,3 +1,8 @@
+// ⚠ PASTE-READY BODY ONLY. The Voiceflow function creator already
+// supplies:  export default async function main(args) { ... }
+// Paste everything below BETWEEN its braces. Do NOT add
+// `export default`, an outer function, or `module.exports`.
+
 /**
  * VF Function: bootstrap — the n8n prelude (Get Tenant → Get Contact →
  * Get Prompt → Get History → Voyage Embed → Search Wines → Build Messages →
@@ -13,10 +18,25 @@
  *   fv_system, fv_system_text, fv_messages, fv_tenant_id,
  *   fv_retrieved_wine_ids. Contact/message come from built-ins.
  *
- * Paste _http.js (http, sbHeaders) at the top of this Function.
+ * http + sbHeaders are inlined below (VF Functions can't import modules).
  */
-async function main(args) {
   const env = args; // VF injects secrets as args; map as needed
+  const http = async ({ method = 'GET', url, headers = {}, body }) => {
+    try {
+      const init = { method, headers: { ...headers } };
+      if (body !== undefined) {
+        init.headers['Content-Type'] = init.headers['Content-Type'] || 'application/json';
+        init.body = typeof body === 'string' ? body : JSON.stringify(body);
+      }
+      const res = await fetch(url, init);
+      const txt = await res.text();
+      let b; try { b = txt ? JSON.parse(txt) : null; } catch (_e) { b = txt; }
+      return { ok: res.status < 400, status: res.status, body: b };
+    } catch (e) {
+      return { ok: false, status: 0, body: { __error: { url, message: e && e.message } } };
+    }
+  };
+  const sbHeaders = (e) => ({ apikey: e.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${e.SUPABASE_SERVICE_ROLE_KEY}` });
   const tenant_slug = args.tenant_slug || 'level_24_wines';
   const contact_id = args.user_id;          // built-in: VF userID = contact id
   const channel = args.channel || 'web';
@@ -154,6 +174,3 @@ async function main(args) {
     fv_retrieved_wine_ids: wines.map((w) => w.id),
     fv_message: message,
   };
-}
-
-module.exports = { main };

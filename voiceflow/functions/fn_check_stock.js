@@ -1,7 +1,11 @@
+// ⚠ PASTE-READY BODY ONLY. The Voiceflow function creator already
+// supplies:  export default async function main(args) { ... }
+// Paste everything below BETWEEN its braces. Do NOT add
+// `export default`, an outer function, or `module.exports`.
+
 // Voiceflow Function: fn_check_stock  (tool: check_stock)
 // Inputs: shopify_variant_id (tool arg) | fv_tenant_id, + secrets
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY. Output var: tool_result.
-export default async function main(args) {
   const env = args;
   const tenant_id = args.fv_tenant_id;
   const http = async ({ method = 'GET', url, headers = {}, body }) => {
@@ -32,4 +36,3 @@ export default async function main(args) {
     ? { available: true, note: 'not in catalogue cache; checkout will confirm' }
     : { available: !!row.inventory_available, wine: `${row.title || ''} ${row.vintage || ''}`.trim() };
   return { outputVars: { tool_result: JSON.stringify(result) } };
-}

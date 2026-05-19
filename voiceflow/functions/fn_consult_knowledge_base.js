@@ -1,7 +1,11 @@
+// ⚠ PASTE-READY BODY ONLY. The Voiceflow function creator already
+// supplies:  export default async function main(args) { ... }
+// Paste everything below BETWEEN its braces. Do NOT add
+// `export default`, an outer function, or `module.exports`.
+
 // Voiceflow Function: fn_consult_knowledge_base  (tool: consult_knowledge_base)
 // Inputs: query (tool arg) | fv_tenant_id, + secrets SUPABASE_URL,
 //   SUPABASE_SERVICE_ROLE_KEY, VOYAGE_API_KEY. Output var: tool_result.
-export default async function main(args) {
   const env = args;
   const tenant_id = args.fv_tenant_id;
   const http = async ({ method = 'GET', url, headers = {}, body }) => {
@@ -43,4 +47,3 @@ export default async function main(args) {
       : { error: 'kb search failed', detail: r.body };
   }
   return { outputVars: { tool_result: JSON.stringify(result) } };
-}

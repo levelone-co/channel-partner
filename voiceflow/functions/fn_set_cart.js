@@ -1,9 +1,13 @@
+// ⚠ PASTE-READY BODY ONLY. The Voiceflow function creator already
+// supplies:  export default async function main(args) { ... }
+// Paste everything below BETWEEN its braces. Do NOT add
+// `export default`, an outer function, or `module.exports`.
+
 // Voiceflow Function: fn_set_cart  (tool: set_cart)
 // Replace the ENTIRE cart with exactly `items` (items:[] clears it).
 // Inputs: items (tool arg; array or JSON string) | fv_tenant_id, user_id,
 //   + secrets SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SHOPIFY_STORE_DOMAIN.
 // Output var: tool_result.
-export default async function main(args) {
   const env = args;
   const tenant_id = args.fv_tenant_id;
   const contact_id = args.user_id;
@@ -48,4 +52,3 @@ export default async function main(args) {
     ? { cleared: true, checkout_url: null, via: 'cleared' }
     : { cart: entries.map((k) => ({ variant_id: k, quantity: lines[k] })), checkout_url, via: 'permalink' };
   return { outputVars: { tool_result: JSON.stringify(result) } };
-}
