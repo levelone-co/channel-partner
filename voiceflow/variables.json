@@ -1,0 +1,40 @@
+{
+  "_note": "Custom Voiceflow variables for the Sarah voice build. Built-ins last_utterance (=message), user_id (=contact id), last_response (=agent reply) replace the equivalent customs — do NOT recreate those. vf_ prefix is reserved by Voiceflow, so plumbing vars use fv_. If your Voiceflow importer expects CSV, the columns are: name,description,defaultValue.",
+  "variables": [
+    {
+      "name": "tenant_slug",
+      "description": "Tenant identifier. Set by vf-adapter (PATCH /variables) or this default for the voice-widget path.",
+      "defaultValue": "level_24_wines"
+    },
+    {
+      "name": "channel",
+      "description": "Normalised channel; 'web' for the voice widget. Set by vf-adapter, else this default.",
+      "defaultValue": "web"
+    },
+    {
+      "name": "fv_system_text",
+      "description": "Flattened system prompt (layered prompts + contact context + retrieved-wine block) produced by the bootstrap Function. Wire into the Agent step's System field.",
+      "defaultValue": ""
+    },
+    {
+      "name": "fv_messages",
+      "description": "Supabase last-20 history + current turn, chronological, from bootstrap. Parity history (NOT vf_memory, which is session-scoped).",
+      "defaultValue": ""
+    },
+    {
+      "name": "fv_tenant_id",
+      "description": "Resolved tenant UUID from bootstrap. Used by every tool Function and by finalize logging.",
+      "defaultValue": ""
+    },
+    {
+      "name": "fv_retrieved_wine_ids",
+      "description": "Wine ids RAG returned this turn; logged in user-turn metadata; supports grounding checks.",
+      "defaultValue": ""
+    },
+    {
+      "name": "path",
+      "description": "Cost attribution tag written to conversations.metadata.path: 'widget' (live voice) or 'adapter' (harness probe).",
+      "defaultValue": "widget"
+    }
+  ]
+}

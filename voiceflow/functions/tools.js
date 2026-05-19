@@ -133,6 +133,12 @@ async function capture_return_channels(args, ctx) {
 
 async function consult_web({ query }, ctx) {
   const { env } = ctx;
+  if (!env.TAVILY_API_KEY) {
+    // No key configured — degrade gracefully so the agent keeps selling
+    // instead of erroring. (Eval report should footnote consult_web as
+    // "not exercised — no Tavily key".)
+    return { unavailable: true, note: 'web search not configured; answer from catalogue/knowledge instead' };
+  }
   const r = await http({
     method: 'POST',
     url: 'https://api.tavily.com/search',

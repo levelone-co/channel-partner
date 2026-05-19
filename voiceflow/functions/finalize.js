@@ -3,23 +3,23 @@
  * Log Assistant Turn node + the silent-extraction branch
  * (Extract Entities → Parse Entities → Update GHL Contact).
  *
- * Inputs (VF vars): vf_tenant_id, vf_contact_id, vf_channel, vf_message,
- *   and the Agent step result — pass its final text as `reply_text`, plus
- *   model/usage/stop_reason if the Agent step exposes them (else null/0).
- *   `path` = 'adapter' | 'widget' for cost attribution.
+ * Inputs: fv_tenant_id (bootstrap), built-ins user_id / channel /
+ *   last_utterance, and the Agent step result via built-in `last_response`.
+ *   Optionally model/usage/stop_reason if the Agent step exposes them.
+ *   `path` = 'adapter' | 'widget' for cost attribution (default 'widget').
  *
- * Output: { vf_reply } — the text the flow returns to the user.
+ * Output: { fv_reply } (informational; the Agent step already spoke it).
  *
  * Paste _http.js (http, sbHeaders) at the top of this Function.
  */
 async function main(args) {
   const env = args;
-  const tenant_id = args.vf_tenant_id;
-  const contact_id = args.vf_contact_id;
-  const channel = args.vf_channel || 'web';
-  const message = args.vf_message;
-  const reply = args.reply_text || '';
-  const path = args.path || 'adapter';
+  const tenant_id = args.fv_tenant_id;
+  const contact_id = args.user_id;            // built-in
+  const channel = args.channel || 'web';
+  const message = args.last_utterance;        // built-in
+  const reply = args.last_response || '';     // built-in: agent's last reply
+  const path = args.path || 'widget';
 
   // 1. Log Assistant Turn — identical metadata shape to n8n + engine tag.
   await http({
@@ -81,7 +81,7 @@ async function main(args) {
     }
   } catch (_e) { /* extraction is best-effort; never blocks the reply */ }
 
-  return { vf_reply: reply };
+  return { fv_reply: reply };
 }
 
 module.exports = { main };

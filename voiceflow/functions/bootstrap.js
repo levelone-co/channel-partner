@@ -9,17 +9,18 @@
  *   tenant_slug (default 'level_24_wines'), contact_id, channel ('web'),
  *   and the user's message (request.payload).
  *
- * Outputs (VF variables): vf_system, vf_messages, vf_tenant_id,
- *   vf_contact_id, vf_channel, vf_retrieved_wine_ids, vf_message.
+ * Outputs (VF variables, fv_ prefix — vf_ is reserved by Voiceflow):
+ *   fv_system, fv_system_text, fv_messages, fv_tenant_id,
+ *   fv_retrieved_wine_ids. Contact/message come from built-ins.
  *
  * Paste _http.js (http, sbHeaders) at the top of this Function.
  */
 async function main(args) {
   const env = args; // VF injects secrets as args; map as needed
   const tenant_slug = args.tenant_slug || 'level_24_wines';
-  const contact_id = args.contact_id;
+  const contact_id = args.user_id;          // built-in: VF userID = contact id
   const channel = args.channel || 'web';
-  const message = args.message; // wire from request.payload in the flow
+  const message = args.last_utterance;      // built-in: user's last utterance
 
   // GHL custom-field IDs — same as n8n Build Messages.
   const FIELD_ID = {
@@ -141,17 +142,17 @@ async function main(args) {
   // Flattened plain-text system for Voiceflow's Agent step (which does not
   // take Anthropic content-blocks/cache_control). Losing cache_control is a
   // minor cost difference — record it as a documented eval caveat.
-  const vf_system_text = systemBlocks.map((b) => b.text).join('\n\n');
+  const fv_system_text = systemBlocks.map((b) => b.text).join('\n\n');
 
   return {
-    vf_system: systemBlocks,
-    vf_system_text,
-    vf_messages: messages,
-    vf_tenant_id: tenant_id,
-    vf_contact_id: contact_id,
-    vf_channel: channel,
-    vf_retrieved_wine_ids: wines.map((w) => w.id),
-    vf_message: message,
+    fv_system: systemBlocks,
+    fv_system_text,
+    fv_messages: messages,
+    fv_tenant_id: tenant_id,
+    fv_contact_id: contact_id,
+    fv_channel: channel,
+    fv_retrieved_wine_ids: wines.map((w) => w.id),
+    fv_message: message,
   };
 }
 

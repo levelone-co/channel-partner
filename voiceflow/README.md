@@ -28,8 +28,10 @@ Free/sandbox account. In **Voiceflow → project → Integrations / API keys**,
 get the **Dialog Manager API key** → store it as n8n Variable
 `VF_DM_API_KEY` (the adapter uses it; see `.env.example`).
 
-In **Voiceflow → project → Settings → Variables / Secrets**, add (these
-mirror the n8n Variables the JS uses):
+In **Voiceflow → Secrets store**, add (these mirror the n8n Variables the
+JS uses). `TAVILY_API_KEY` is optional — `fn_consult_web` degrades
+gracefully without it (footnote consult_web as "not exercised" in the
+report).
 
 | Secret | Source |
 |---|---|
@@ -39,7 +41,24 @@ mirror the n8n Variables the JS uses):
 | `VOYAGE_API_KEY` | same |
 | `SHOPIFY_STORE_DOMAIN` | same (`level-24-co.myshopify.com`) |
 | `GHL_API_TOKEN` | same |
-| `TAVILY_API_KEY` | same (consult_web) |
+| `TAVILY_API_KEY` | optional (consult_web) — free key at app.tavily.com |
+
+### Variables — reuse built-ins; create only the customs
+
+`vf_` is reserved by Voiceflow, so plumbing variables use the **`fv_`**
+prefix. Reuse these built-ins instead of custom equivalents:
+
+| Built-in | Use as | Don't create |
+|---|---|---|
+| `last_utterance` | the user's message | ~~`message`~~ |
+| `user_id` | the contact id (VF userID) | ~~`contact_id`~~ |
+| `last_response` | agent's reply (→ finalize) | ~~`reply_text`~~ |
+
+Custom variables to create (also in `voiceflow/variables.json` for import):
+`tenant_slug`, `channel`, `fv_system_text`, `fv_messages`,
+`fv_tenant_id`, `fv_retrieved_wine_ids`, `path`. Do **not** use `vf_memory`
+for history — it's session-scoped; parity history comes from Supabase via
+`bootstrap` (`fv_messages`).
 
 **Free-tier caveats — record these in the eval report, do not silently
 absorb them:**
@@ -57,11 +76,11 @@ absorb them:**
 ```
 Start
   → [Function] bootstrap        (functions/bootstrap.js)
-  → [Agent step] "Sarah"        Claude Haiku, system = {vf_system},
+  → [Agent step] "Sarah"        Claude Haiku, system = {fv_system_text},
                                  8 tools, each fulfilled by a Function below,
                                  max tool iterations ≈ 5
   → [Function] finalize         (functions/finalize.js)
-  → End (return {vf_reply})
+  → End (agent already spoke; finalize just logs + extracts)
 ```
 
 Tool Functions (registered on the Agent step, one per tool in
@@ -79,9 +98,11 @@ fulfilment to the matching Function.
 ## 2. Inputs
 
 The adapter (`workflows/vf-adapter.json`) PATCHes user-state variables
-before `/interact`, so at flow start these VF variables exist:
-`tenant_slug`, `contact_id`, `channel`. `bootstrap` reads them, plus the
-user's message from the incoming `request.payload`.
+before `/interact`, so at flow start `tenant_slug` and `channel` exist;
+the contact id is the built-in `user_id` (= VF userID) and the message is
+the built-in `last_utterance`. For the live voice-widget path there is no
+adapter, so `bootstrap` defaults `tenant_slug='level_24_wines'`,
+`channel='web'`.
 
 ## 3. What each Function does (parity contract)
 
@@ -91,8 +112,8 @@ user's message from the incoming `request.payload`.
   embed of the message + `search_wines` RPC, assemble the `system` string
   (concatenated prompts + contact-context + retrieved-wine block, identical
   format to n8n `Build Messages`) and the `messages` array, then write the
-  **Log User Turn** row. Sets VF vars: `vf_system`, `vf_messages`,
-  `vf_tenant_id`, `vf_retrieved_wine_ids`, `vf_message`.
+  **Log User Turn** row. Sets VF vars: `fv_system`, `fv_system_text`,
+  `fv_messages`, `fv_tenant_id`, `fv_retrieved_wine_ids`.
 - **fn_*** — exact ports of the `sarah-agent-loop.js` handlers (cart still
   zero-auth permalink + `customer_carts` keyed `(tenant_id, contact_id)`;
   consult_* built from `STEP3_N8N_CHANGES.md` §3.5: Tavily / Voyage +
