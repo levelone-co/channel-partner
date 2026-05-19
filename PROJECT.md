@@ -12,15 +12,15 @@ github.com/levelone-co/channel-partner
 - GHL: CRM, unified inbox, channels, automations
 - n8n Cloud: webhook endpoint + AI orchestration
 - Supabase: PostgreSQL + pgvector (conversations, contacts, RAG)
-- Claude API: LLM (claude-sonnet-4-5 or claude-haiku-4-5)
-- Shopify Storefront API: cart operations
+- Claude API: LLM (claude-haiku-4-5; agent tool-loop in a Code node)
+- Shopify: zero-auth cart permalink for checkout (Storefront/Admin not used on the hot path)
 
 ## Build order (Phase 0)
 1. n8n webhook → Claude API connection (test this first)
 2. RAG pipeline: embed wine catalogue into Supabase pgvector
 3. GHL → n8n webhook routing (all channels → AI layer)
-4. Shopify tool use (add to cart, check stock)
-5. Age-gate flow in GHL
+4. Shopify tool use (cart permalink, search, stock) + 3.5 consultation tools
+5. (Age-gate dropped — handled conversationally per operator decision)
 
 ## Migration rules (keep Phase 1 easy)
 - All prompts as Markdown files in /prompts directory
@@ -33,10 +33,10 @@ github.com/levelone-co/channel-partner
 - /prompts/20-domain-knowledge-wine.md — wine vocabulary, pairings, SA context (cross-tenant within wine vertical)
 - /prompts/30-profile-account-{tenant}.md — account persona + open facts
 - /prompts/40-playbook-account-{tenant}.md — account proprietary positioning
-- /tools/shopify-tools.json — tool definitions for cart operations (used in Step 4)
+- /tools/account-tools.json — all tool definitions (search/cart/consult/capture)
 - /workflows/ai-conversation-core.json — n8n workflow (webhook → RAG → Claude → log)
-- /sql/000{1,2,3}_*.sql — Supabase schema + RPCs
-- /scripts/ingest_wines.py — Shopify → Voyage → Supabase ingestion
+- /sql/000{1..7}_*.sql — Supabase schema, RPCs, variant-grained wines, customer_carts
+- /scripts/ingest_wines.py + ingest_knowledge.py — Shopify/MD → Voyage → Supabase
 
 ## Phase 0 experiments
 Parallel evaluations to run alongside the n8n + Claude path before committing for the pilot:
