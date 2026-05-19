@@ -250,3 +250,39 @@ so it adds no customer-perceived latency.
   when it's genuinely beyond your knowledge and you've already tried
   consult_web and consult_knowledge_base. Their reply arrives a later
   turn. Do not pause or stall — keep selling with what you know.
+
+### Tool INPUT variables — source + LLM description
+
+Each tool input is one of two kinds. Getting the source wrong is what
+triggers Voiceflow's "Missing input variable LLM description" error.
+
+- **LLM-supplied args** (the tool's input_schema fields) → source = **LLM**,
+  give each the description below.
+- **System-injected** (`fv_tenant_id`, `user_id`, `tenant_slug`, and the
+  secrets `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VOYAGE_API_KEY`,
+  `SHOPIFY_STORE_DOMAIN`, `GHL_API_TOKEN`, `TAVILY_API_KEY`) → source =
+  **Variable / Secret**, NOT LLM. No LLM description (and must not be
+  LLM-inferred). If any of these are left as "LLM", the error persists.
+
+LLM-arg descriptions:
+
+- `fn_search_wines.query` — Free-text of what the customer wants: varietal,
+  price range, food pairing, occasion or mood.
+- `fn_check_stock.shopify_variant_id` — Shopify VARIANT id of the specific
+  wine+vintage, from the retrieved wines. Never say it aloud.
+- `fn_add_to_cart.shopify_variant_id` — Shopify VARIANT id of the wine+
+  vintage being added.
+- `fn_add_to_cart.quantity` — Bottles, integer 1–24; default 1 unless the
+  customer specifies.
+- `fn_set_cart.items` — COMPLETE desired final cart: array of
+  {shopify_variant_id, quantity}; empty array clears it; include every
+  item that should remain, not just the change.
+- `fn_capture_return_channels.first_name|last_name|phone|whatsapp|email` —
+  all optional; fill ONLY what the customer volunteered, never guess.
+  Phone/whatsapp in E.164 if inferable (SA 0821234567 → +27821234567).
+- `fn_consult_web.query` — Concise web search query for the external info
+  needed.
+- `fn_consult_knowledge_base.query` — Concise query for the estate-specific
+  info needed.
+- `fn_consult_team.question` — Concise question for the team with enough
+  customer context to answer.
