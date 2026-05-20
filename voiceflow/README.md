@@ -159,10 +159,17 @@ Keep GHL exactly as it was (static `<script>`) and only inject Voiceflow on
   {% render 'quick-add-modal' %}
 {% endif %}
 
-<!-- GHL widget — STATIC, always loaded (the live default) -->
-<script src="https://widgets.leadconnectorhq.com/loader.js"
+<!-- GHL widget — STATIC, always loaded (the live default).
+     `defer` silences Shopify ParserBlockingScript lint without changing
+     behaviour (currentScript still resolves for deferred scripts, so the
+     loader's data-widget-id lookup still works). RemoteAsset lint is
+     unavoidable for a third-party widget — disabled just for this line. -->
+{% # theme-check-disable RemoteAsset %}
+<script defer
+        src="https://widgets.leadconnectorhq.com/loader.js"
         data-resources-url="https://widgets.leadconnectorhq.com/chat-widget/loader.js"
         data-widget-id="6a072ec62a4bbd9f1746f45d"></script>
+{% # theme-check-enable RemoteAsset %}
 
 <!-- Voiceflow — only when ?vf=1 (sticky; ?vf=0 resets); hides GHL bubble in that mode -->
 <script>
