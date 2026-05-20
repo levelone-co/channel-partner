@@ -146,12 +146,18 @@ grounding/cart/brevity; (2) text harness `eval/runner/run_eval.py` via
 `vf-adapter` for the functional-parity gates; (3) live voice widget
 `?vf=1` only for the final qualitative voice-readiness pass.
 
-Storefront gate (v2 — GHL stays static; Voiceflow + CSS-hide only on
-`?vf=1`). The earlier dynamic-inject GHL pattern broke the bubble because
-LeadConnector's `loader.js` reads `data-widget-id` via `document.currentScript`,
-which is unreliable for scripts created via `createElement`+`appendChild`.
-Keep GHL exactly as it was (static `<script>`) and only inject Voiceflow on
-`?vf=1`, hiding the GHL bubble in that mode.
+Storefront gate (v3 — `document.write` swap). Two earlier attempts failed:
+v1 dynamic-injected GHL broke its `data-widget-id` lookup (`document.
+currentScript` is unreliable for `appendChild` scripts); v2 left GHL
+static + tried to cancel its deferred execution by `.remove()`'ing the
+script tag — browsers had already queued it, so GHL ran anyway and created
+a `<chat-widget id="ghl-loader" ...>` alongside Voiceflow on `?vf=1`.
+
+v3 fix: do not render GHL at all on `?vf=1`. An inline gate script uses
+`document.write` (during initial parse, the only legitimate use) to insert
+EITHER the GHL tag OR the Voiceflow tag — never both. The written tag is
+treated as if it were statically authored, so `currentScript` works and the
+"unwanted" engine literally never enters the DOM.
 
 ```html
 {% raw %}
@@ -159,15 +165,7 @@ Keep GHL exactly as it was (static `<script>`) and only inject Voiceflow on
   {% render 'quick-add-modal' %}
 {% endif %}
 
-<!-- GHL widget — STATIC, deferred, with id so the gate can cancel it on ?vf=1. -->
-{% # theme-check-disable RemoteAsset %}
-<script defer id="ghl-loader"
-        src="https://widgets.leadconnectorhq.com/loader.js"
-        data-resources-url="https://widgets.leadconnectorhq.com/chat-widget/loader.js"
-        data-widget-id="6a072ec62a4bbd9f1746f45d"></script>
-{% # theme-check-enable RemoteAsset %}
-
-<!-- Voiceflow — only when ?vf=1 (sticky; ?vf=0 resets); hides GHL bubble in that mode -->
+{% # theme-check-disable RemoteAsset, ParserBlockingScript %}
 <script>
   (function () {
     var p = new URLSearchParams(window.location.search), vf;
@@ -176,34 +174,29 @@ Keep GHL exactly as it was (static `<script>`) and only inject Voiceflow on
       if (p.get('vf') === '0') sessionStorage.removeItem('useVF');
       vf = sessionStorage.getItem('useVF') === '1';
     } catch (e) { vf = p.get('vf') === '1'; }
-    if (!vf) return;
 
-    // Cancel the deferred GHL loader BEFORE it executes (defer queues
-    // execution until after parse; removing the element cancels it).
-    var ghl = document.getElementById('ghl-loader');
-    if (ghl) ghl.remove();
-
-    // Belt-and-braces: hide anything that still renders.
-    var style = document.createElement('style');
-    style.textContent =
-      'iframe[src*="leadconnectorhq.com"],iframe[src*="msgsndr"],' +
-      '#chat-widget-container,#chat-widget,[id^="chat-widget"],' +
-      '[id*="leadconnector"],[class*="leadconnector"]{display:none!important;}';
-    document.head.appendChild(style);
-    var v = document.createElement('script');
-    v.onload = function () {
-      window.voiceflow.chat.load({
-        verify: { projectID: '69fb1aaa5cd3c58960585794' },
-        url: 'https://general-runtime.voiceflow.com',
-        versionID: 'production',
-        voice: { url: 'https://runtime-api.voiceflow.com' }
-      });
-    };
-    v.src = 'https://cdn.voiceflow.com/widget-next/bundle.mjs';
-    v.type = 'text/javascript';
-    document.body.appendChild(v);
+    if (vf) {
+      window.__loadVF = function () {
+        window.voiceflow.chat.load({
+          verify: { projectID: '69fb1aaa5cd3c58960585794' },
+          url: 'https://general-runtime.voiceflow.com',
+          versionID: 'production',
+          voice: { url: 'https://runtime-api.voiceflow.com' }
+        });
+      };
+      document.write(
+        '<script src="https://cdn.voiceflow.com/widget-next/bundle.mjs" onload="window.__loadVF()"><\/script>'
+      );
+    } else {
+      document.write(
+        '<script defer src="https://widgets.leadconnectorhq.com/loader.js" ' +
+        'data-resources-url="https://widgets.leadconnectorhq.com/chat-widget/loader.js" ' +
+        'data-widget-id="6a072ec62a4bbd9f1746f45d"><\/script>'
+      );
+    }
   })();
 </script>
+{% # theme-check-enable RemoteAsset, ParserBlockingScript %}
 {% endraw %}
 ```
 
