@@ -146,46 +146,50 @@ grounding/cart/brevity; (2) text harness `eval/runner/run_eval.py` via
 `vf-adapter` for the functional-parity gates; (3) live voice widget
 `?vf=1` only for the final qualitative voice-readiness pass.
 
-Storefront gate — one widget at a time, GHL untouched for real visitors.
-In `layout/theme.liquid` before `</body>`: Voiceflow only when `?vf=1`
-(sticky for the session; `?vf=0` resets), else the GHL widget. No theme
-duplication.
+Storefront gate (v2 — GHL stays static; Voiceflow + CSS-hide only on
+`?vf=1`). The earlier dynamic-inject GHL pattern broke the bubble because
+LeadConnector's `loader.js` reads `data-widget-id` via `document.currentScript`,
+which is unreliable for scripts created via `createElement`+`appendChild`.
+Keep GHL exactly as it was (static `<script>`) and only inject Voiceflow on
+`?vf=1`, hiding the GHL bubble in that mode.
 
 ```html
 {% raw %}
 {% if settings.quick_add or settings.mobile_quick_add %}
   {% render 'quick-add-modal' %}
 {% endif %}
+
+<!-- GHL widget — STATIC, always loaded (the live default) -->
+<script src="https://widgets.leadconnectorhq.com/loader.js"
+        data-resources-url="https://widgets.leadconnectorhq.com/chat-widget/loader.js"
+        data-widget-id="6a072ec62a4bbd9f1746f45d"></script>
+
+<!-- Voiceflow — only when ?vf=1 (sticky; ?vf=0 resets); hides GHL bubble in that mode -->
 <script>
   (function () {
     var p = new URLSearchParams(window.location.search), vf;
     try {
-      if (p.get('vf') === '1') sessionStorage.setItem('useVF','1');
+      if (p.get('vf') === '1') sessionStorage.setItem('useVF', '1');
       if (p.get('vf') === '0') sessionStorage.removeItem('useVF');
       vf = sessionStorage.getItem('useVF') === '1';
     } catch (e) { vf = p.get('vf') === '1'; }
-    if (vf) {
-      (function (d, t) {
-        var v = d.createElement(t), s = d.getElementsByTagName(t)[0];
-        v.onload = function () {
-          window.voiceflow.chat.load({
-            verify: { projectID: '69fb1aaa5cd3c58960585794' },
-            url: 'https://general-runtime.voiceflow.com',
-            versionID: 'production',
-            voice: { url: 'https://runtime-api.voiceflow.com' }
-          });
-        };
-        v.src = 'https://cdn.voiceflow.com/widget-next/bundle.mjs';
-        v.type = 'text/javascript';
-        s.parentNode.insertBefore(v, s);
-      })(document, 'script');
-    } else {
-      var g = document.createElement('script');
-      g.src = 'https://widgets.leadconnectorhq.com/loader.js';
-      g.setAttribute('data-resources-url', 'https://widgets.leadconnectorhq.com/chat-widget/loader.js');
-      g.setAttribute('data-widget-id', '6a072ec62a4bbd9f1746f45d');
-      document.body.appendChild(g);
-    }
+    if (!vf) return;
+    var style = document.createElement('style');
+    style.textContent =
+      '#lc-chat-widget,[id^="lc-"],[class*="leadconnector"],[id*="leadconnector"]{display:none!important;}';
+    document.head.appendChild(style);
+    var v = document.createElement('script');
+    v.onload = function () {
+      window.voiceflow.chat.load({
+        verify: { projectID: '69fb1aaa5cd3c58960585794' },
+        url: 'https://general-runtime.voiceflow.com',
+        versionID: 'production',
+        voice: { url: 'https://runtime-api.voiceflow.com' }
+      });
+    };
+    v.src = 'https://cdn.voiceflow.com/widget-next/bundle.mjs';
+    v.type = 'text/javascript';
+    document.body.appendChild(v);
   })();
 </script>
 {% endraw %}
