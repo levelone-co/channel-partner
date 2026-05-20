@@ -185,13 +185,13 @@ treated as if it were statically authored, so `currentScript` works and the
         });
       };
       document.write(
-        '<script src="https://cdn.voiceflow.com/widget-next/bundle.mjs" onload="window.__loadVF()"><\/script>'
+        '<script src="https://cdn.voiceflow.com/widget-next/bundle.mjs" onload="window.__loadVF()"><' + '/script>'
       );
     } else {
       document.write(
         '<script defer src="https://widgets.leadconnectorhq.com/loader.js" ' +
         'data-resources-url="https://widgets.leadconnectorhq.com/chat-widget/loader.js" ' +
-        'data-widget-id="6a072ec62a4bbd9f1746f45d"><\/script>'
+        'data-widget-id="6a072ec62a4bbd9f1746f45d"><' + '/script>'
       );
     }
   })();
