@@ -159,13 +159,9 @@ Keep GHL exactly as it was (static `<script>`) and only inject Voiceflow on
   {% render 'quick-add-modal' %}
 {% endif %}
 
-<!-- GHL widget — STATIC, always loaded (the live default).
-     `defer` silences Shopify ParserBlockingScript lint without changing
-     behaviour (currentScript still resolves for deferred scripts, so the
-     loader's data-widget-id lookup still works). RemoteAsset lint is
-     unavoidable for a third-party widget — disabled just for this line. -->
+<!-- GHL widget — STATIC, deferred, with id so the gate can cancel it on ?vf=1. -->
 {% # theme-check-disable RemoteAsset %}
-<script defer
+<script defer id="ghl-loader"
         src="https://widgets.leadconnectorhq.com/loader.js"
         data-resources-url="https://widgets.leadconnectorhq.com/chat-widget/loader.js"
         data-widget-id="6a072ec62a4bbd9f1746f45d"></script>
@@ -181,9 +177,18 @@ Keep GHL exactly as it was (static `<script>`) and only inject Voiceflow on
       vf = sessionStorage.getItem('useVF') === '1';
     } catch (e) { vf = p.get('vf') === '1'; }
     if (!vf) return;
+
+    // Cancel the deferred GHL loader BEFORE it executes (defer queues
+    // execution until after parse; removing the element cancels it).
+    var ghl = document.getElementById('ghl-loader');
+    if (ghl) ghl.remove();
+
+    // Belt-and-braces: hide anything that still renders.
     var style = document.createElement('style');
     style.textContent =
-      '#lc-chat-widget,[id^="lc-"],[class*="leadconnector"],[id*="leadconnector"]{display:none!important;}';
+      'iframe[src*="leadconnectorhq.com"],iframe[src*="msgsndr"],' +
+      '#chat-widget-container,#chat-widget,[id^="chat-widget"],' +
+      '[id*="leadconnector"],[class*="leadconnector"]{display:none!important;}';
     document.head.appendChild(style);
     var v = document.createElement('script');
     v.onload = function () {
